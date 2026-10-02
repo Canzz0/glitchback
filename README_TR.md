@@ -1,5 +1,7 @@
 # Patchback
 
+[English](./README.md) · **Türkçe**
+
 Sitenize bir **"Sorun bildir"** butonu ekler. Başarısız istekleri (400+) ve yakalanmamış JavaScript hatalarını da kimse butona basmadan **otomatik** rapor eder. Kullanıcının yazdığı şikâyeti sayfa adresi, konsol hataları, başarısız istekler ve son tıklamalarla birlikte toplar, **Jev** ile sınıflandırır (frontend / backend, ciddiyet, zorluk) ve GitHub issue'su açar. Frontend hataları için düzeltme önerisini issue'ya yazar; ekipten biri onaylarsa PR açar.
 
 <p align="center"><img src="./docs/images/widget-overview.png" alt="Patchback butonu: masaüstünde ve mobilde sorun bildirme formu" width="900"></p>
@@ -189,7 +191,7 @@ Widget, sitenizin yazı tipini kullanır. Renkler CSS değişkenleriyle değişi
 
 ```bash
 npm install
-npm test            # 57 test, ağ gerektirmez
+npm test            # 70 test, ağ gerektirmez
 npm run typecheck
 npm run build       # packages/patchback/dist
 node packages/patchback/dist/cli.js init ../bir-next-projesi
@@ -211,8 +213,8 @@ node ../patchback/packages/patchback/dist/cli.js init
 
 - Şimdilik yalnızca Next.js App Router için tek komutla kurulum var; diğerleri `serve` ile çalışır.
 - İstek sınırı bellek içindedir. Serverless ortamda her kopya ayrı sayar.
-- Tekilleştirme GitHub aramasını kullanır; saniyeler içinde gelen aynı rapor ikinci issue açabilir.
-- GitHub Actions adımları paket npm'e yayımlanınca çalışır (`npx patchback@0`).
+- Tekilleştirme GitHub aramasını kullanır; saniyeler içinde farklı bir sunucu kopyasına gelen aynı rapor ikinci issue açabilir.
+- GitHub Actions adımları paket npm'e yayımlanınca çalışır (`npx patchback@<sürüm>`).
 
 ## Yol haritası
 
