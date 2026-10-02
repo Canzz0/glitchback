@@ -8,7 +8,7 @@ Sitenize bir **"Sorun bildir"** butonu ekler. Başarısız istekleri (400+) ve y
 
 Ayrı veritabanı, panel ya da sunucu yok: raporlar uygulamanızın kendi içinde karşılanır, GitHub da iş takibi olur.
 
-> **Durum:** v0.1. Testler geçiyor (`npm test`). Paket henüz npm'de yayımlanmadı; o zamana kadar [yerelden kurulum](#yayımlanmadan-önce-yerelden-kurmak) kullanılır.
+> **Durum:** v0.1, erken sürüm. Testler geçiyor (`npm test`). Geri bildirim ve issue'lar memnuniyetle karşılanır.
 
 ## Kurulum (Next.js)
 
@@ -199,9 +199,9 @@ node packages/patchback/dist/cli.js init ../bir-next-projesi
 
 Tek paket: `packages/patchback/src` altında `widget/`, `server/`, `fixer/`, `schema/`, `cli/` ve Next.js girişi `next.ts`.
 
-### Yayımlanmadan önce yerelden kurmak
+### Yerel kopyadan kurmak
 
-Patchback klasöründe `npm install && npm run build` çalıştırın, sonra uygulama klasöründe:
+Yayımlanmamış değişiklikleri denemek için Patchback klasöründe `npm install && npm run build` çalıştırın, sonra uygulama klasöründe:
 
 ```bash
 node ../patchback/packages/patchback/dist/cli.js init
@@ -214,15 +214,6 @@ node ../patchback/packages/patchback/dist/cli.js init
 - Şimdilik yalnızca Next.js App Router için tek komutla kurulum var; diğerleri `serve` ile çalışır.
 - İstek sınırı bellek içindedir. Serverless ortamda her kopya ayrı sayar.
 - Tekilleştirme GitHub aramasını kullanır; saniyeler içinde farklı bir sunucu kopyasına gelen aynı rapor ikinci issue açabilir.
-- GitHub Actions adımları paket npm'e yayımlanınca çalışır (`npx patchback@<sürüm>`).
-
-## Yol haritası
-
-- [ ] npm'e yayımlama
-- [ ] GitHub App: token oluşturmadan tek tıkla kurulum
-- [ ] Vite / Remix / SvelteKit için `init`
-- [ ] CI başarısız olunca bir üst modelle yeniden deneme
-- [ ] Ekran görüntüsü (isteğe bağlı, maskelemeli)
 
 ## Lisans
 

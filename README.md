@@ -8,7 +8,7 @@ Adds a **"Report a problem"** button to your site. It also reports failed reques
 
 No separate database, dashboard or server: reports are received inside your own app, and GitHub becomes the issue tracker.
 
-> **Status:** v0.1. Tests pass (`npm test`). The package is not published to npm yet; until then, use the [local install](#installing-locally-before-publishing).
+> **Status:** v0.1, early release. Tests pass (`npm test`). Feedback and issues are welcome.
 
 ## Install (Next.js)
 
@@ -140,7 +140,7 @@ Language and theme are picked from the page: in English, on a page with a dark b
 
 <p align="center">
   <img src="./docs/images/widget-form-en-dark.png" alt="The form in English with the dark theme" width="600">
-  <img src="./docs/images/widget-sent.png" alt="Report sent screen" width="240">
+  <img src="./docs/images/widget-sent-en.png" alt="Report sent screen" width="240">
 </p>
 
 ### Automatic reports
@@ -199,9 +199,9 @@ node packages/patchback/dist/cli.js init ../some-next-project
 
 A single package: `widget/`, `server/`, `fixer/`, `schema/`, `cli/` and the Next.js entry `next.ts` under `packages/patchback/src`.
 
-### Installing locally before publishing
+### Installing from a local checkout
 
-Run `npm install && npm run build` in the Patchback folder, then in your app folder:
+To try unreleased changes, run `npm install && npm run build` in the Patchback folder, then in your app folder:
 
 ```bash
 node ../patchback/packages/patchback/dist/cli.js init
@@ -214,15 +214,6 @@ node ../patchback/packages/patchback/dist/cli.js init
 - One-command install exists only for the Next.js App Router for now; everything else works with `serve`.
 - Rate limits live in memory. On serverless, each instance counts separately.
 - Deduplication uses GitHub search; the same report arriving within seconds on a different server instance can open a second issue.
-- The GitHub Actions steps work once the package is published to npm (`npx patchback@<version>`).
-
-## Roadmap
-
-- [ ] Publish to npm
-- [ ] GitHub App: one-click install without creating a token
-- [ ] `init` for Vite / Remix / SvelteKit
-- [ ] Retry with a stronger model when CI fails
-- [ ] Screenshots (optional, masked)
 
 ## License
 
