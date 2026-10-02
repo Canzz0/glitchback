@@ -1,0 +1,49 @@
+{
+  "name": "patchback",
+  "version": "0.1.0",
+  "description": "Son kullanıcı hata bildirimlerini toplar, Jev ile triyaj eder, frontend hataları için düzeltme önerip onaylanınca PR açar. Kurulum: npx patchback init",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "patchback": "./dist/cli.js"
+  },
+  "exports": {
+    "./widget": {
+      "types": "./dist/types/widget/index.d.ts",
+      "default": "./dist/widget.js"
+    },
+    "./next": {
+      "types": "./dist/types/next.d.ts",
+      "default": "./dist/next.js"
+    },
+    "./server": {
+      "types": "./dist/types/server/index.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./patchback.global.js": "./dist/patchback.global.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup && tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "yaml": "^2.6.0",
+    "zod": "^3.23.8",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "bug-report",
+    "feedback",
+    "widget",
+    "github",
+    "triage",
+    "nextjs",
+    "autofix"
+  ]
+}

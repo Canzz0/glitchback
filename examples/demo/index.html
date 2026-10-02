@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Patchback widget demosu</title>
+  <style>
+    :root { --patchback-accent: #1f4fd1; }
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; color: #1b1d22; line-height: 1.6; }
+    h1 { font-size: 22px; }
+    button.demo { padding: 10px 16px; font-size: 15px; border: 1px solid #d7dae0; border-radius: 8px; background: #fff; cursor: pointer; }
+    code { background: #f1f1ee; padding: 2px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Patchback widget demosu</h1>
+  <p>Sağ alttaki <b>Sorun bildir</b> butonuna basın. Aşağıdaki iki buton bilerek hata üretir; önce onlara basıp sonra bildirim açarsanız, konsol hatasının ve başarısız isteğin bildirime otomatik eklendiğini görürsünüz.</p>
+  <p>
+    <button class="demo" onclick="window.__missing.call()">JS hatası üret</button>
+    <button class="demo" onclick="fetch('/api/pay', { method: 'POST' })">500 isteği üret</button>
+  </p>
+  <p>Önce rapor sunucusunu açın: <code>PATCHBACK_ALLOWED_ORIGINS=http://localhost:3000 npm run serve</code>, sonra bu klasörü <code>npx serve examples/demo</code> ile yayınlayın. GitHub token'ı yoksa raporlar sunucunun terminaline yazılır.</p>
+
+  <script src="../../packages/patchback/dist/patchback.global.js"></script>
+  <script>
+    Patchback.init({ endpoint: "http://localhost:8787", appVersion: "demo-build", askContact: true });
+  </script>
+</body>
+</html>

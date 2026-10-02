@@ -1,0 +1,24 @@
+{
+  "name": "patchback",
+  "private": true,
+  "description": "Patchback monorepo: tek paket packages/patchback",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w patchback",
+    "typecheck": "tsc -p packages/patchback",
+    "test": "node --test --experimental-strip-types packages/patchback/test/*.test.ts",
+    "patchback": "node packages/patchback/dist/cli.js",
+    "serve": "node packages/patchback/dist/cli.js serve"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
