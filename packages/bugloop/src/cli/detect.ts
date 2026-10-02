@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { t } from "./i18n.ts";
 
 export interface NextProject {
   root: string;
@@ -41,12 +42,12 @@ export type DetectResult = { ok: true; project: NextProject } | { ok: false; rea
 
 export function detectNext(root: string): DetectResult {
   const pkg = readJson(join(root, "package.json"));
-  if (!pkg) return { ok: false, reason: "Bu klasörde package.json yok." };
+  if (!pkg) return { ok: false, reason: t("Bu klasörde package.json yok.", "There is no package.json in this folder.") };
   const nextVersion = pkg.dependencies?.next ?? pkg.devDependencies?.next ?? null;
-  if (!nextVersion) return { ok: false, reason: "Bu proje Next.js değil." };
+  if (!nextVersion) return { ok: false, reason: t("Bu proje Next.js değil.", "This project is not a Next.js app.") };
 
   const appDir = ["src/app", "app"].find((d) => exists(root, d) && statSync(join(root, d)).isDirectory());
-  if (!appDir) return { ok: false, reason: "App Router (app/ klasörü) bulunamadı. Şimdilik yalnızca App Router destekleniyor." };
+  if (!appDir) return { ok: false, reason: t("App Router (app/ klasörü) bulunamadı. Şimdilik yalnızca App Router destekleniyor.", "No App Router (app/ folder) found. Only the App Router is supported for now.") };
 
   const layoutName = ["layout.tsx", "layout.jsx", "layout.js", "layout.ts"].find((f) => exists(root, `${appDir}/${f}`));
   const typescript = exists(root, "tsconfig.json");

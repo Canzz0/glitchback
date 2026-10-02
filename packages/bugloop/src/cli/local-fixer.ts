@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { runFixer, type IssueEvent } from "../fixer/run.ts";
 import { ghReady, ghToken } from "./gh.ts";
 import { bold, dim, gitRemoteRepo, ok, readEnvFiles, run } from "./util.ts";
+import { t } from "./i18n.ts";
 
 const MODEL_KEYS = [
   "GEMINI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY",
@@ -14,7 +15,7 @@ async function gh<T>(token: string, path: string): Promise<T> {
   const res = await fetch(`https://api.github.com${path}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
   });
-  if (!res.ok) throw new Error(`GitHub ${path} → ${res.status}. Token'ın bu repoya erişimi var mı?`);
+  if (!res.ok) throw new Error(`GitHub ${path} → ${res.status}. ${t("Token'ın bu repoya erişimi var mı, issue numarası doğru mu?", "Does the token have access to this repo, and is the issue number right?")}`);
   return res.json() as Promise<T>;
 }
 
@@ -33,19 +34,19 @@ function authEnv(token: string) {
 export async function runLocalFixer(mode: "suggest" | "fix", issueNumber: number, dir: string) {
   const appDir = resolve(dir);
   const repo = gitRemoteRepo(appDir);
-  if (!repo) throw new Error(`${appDir} için GitHub origin bulunamadı.`);
+  if (!repo) throw new Error(t(`${appDir} için GitHub origin bulunamadı. Uygulamanın klasöründe çalıştırın.`, `No GitHub origin found for ${appDir}. Run this in your app's folder.`));
 
   const fileEnv = readEnvFiles(appDir);
   for (const k of MODEL_KEYS) if (!process.env[k] && fileEnv[k]) process.env[k] = fileEnv[k];
 
   // The GitHub CLI login can clone, comment and open PRs; the app's issue-only token cannot.
   const token = (ghReady() && ghToken()) || process.env.BUGLOOP_GITHUB_TOKEN || fileEnv.BUGLOOP_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
-  if (!token) throw new Error("GitHub'a erişim yok. `gh auth login` ile giriş yapın ya da BUGLOOP_GITHUB_TOKEN verin.");
+  if (!token) throw new Error(t("GitHub'a erişim yok. `gh auth login` ile giriş yapın ya da BUGLOOP_GITHUB_TOKEN verin.", "No GitHub access. Log in with `gh auth login` or set BUGLOOP_GITHUB_TOKEN."));
 
   const issue = await gh<IssueEvent & { html_url: string }>(token, `/repos/${repo}/issues/${issueNumber}`);
   const me = await gh<{ login: string }>(token, "/user");
   console.log(`${bold(`${repo} #${issue.number}`)} ${issue.title}`);
-  console.log(dim(`yorumlar ${me.login} adına yazılacak`));
+  console.log(dim(t(`yorumlar ${me.login} adına yazılacak`, `comments will be posted as ${me.login}`)));
 
   const work = mkdtempSync(join(tmpdir(), "bugloop-"));
   const clone = join(work, "repo");
@@ -58,7 +59,7 @@ export async function runLocalFixer(mode: "suggest" | "fix", issueNumber: number
     // or in the clone's .git/config (left behind if the process is killed).
     authEnv(token);
     const cloned = run("git", ["clone", "--quiet", `https://github.com/${repo}.git`, clone], { quiet: true });
-    if (!cloned.ok) throw new Error(`Repo klonlanamadı: ${cloned.stderr.replace(token, "***")}`);
+    if (!cloned.ok) throw new Error(`${t("Repo klonlanamadı", "Could not clone the repo")}: ${cloned.stderr.replace(token, "***")}`);
 
     const localCfg = join(appDir, ".bugloop.yml");
     if (existsSync(localCfg)) {
@@ -66,7 +67,7 @@ export async function runLocalFixer(mode: "suggest" | "fix", issueNumber: number
       // Keep the copied config out of every diff and commit the fixer makes.
       appendFileSync(join(clone, ".git/info/exclude"), "\n/.bugloop.yml\n");
     } else if (!existsSync(join(clone, ".bugloop.yml"))) {
-      throw new Error(".bugloop.yml bulunamadı. Önce `npx bugloop init` çalıştırın.");
+      throw new Error(t(".bugloop.yml bulunamadı. Önce `npx bugloop init` çalıştırın.", ".bugloop.yml not found. Run `npx bugloop init` first."));
     }
 
     process.chdir(clone);
@@ -75,7 +76,7 @@ export async function runLocalFixer(mode: "suggest" | "fix", issueNumber: number
     // Suggestions from a local run are authored by you; trust exactly that account.
     process.env.BUGLOOP_BOT_LOGIN = me.login;
     await runFixer(mode, issue, { explicit: true });
-    ok(`Bitti: ${issue.html_url}`);
+    ok(`${t("Bitti", "Done")}: ${issue.html_url}`);
   } finally {
     process.chdir(cwd);
     for (const [k, v] of Object.entries(saved)) {

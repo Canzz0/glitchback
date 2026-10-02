@@ -29,8 +29,8 @@ One command does the following:
   - **Code model**: Gemini, Claude or OpenAI
 - If you are logged in with `gh` on your machine, it also creates the GitHub labels and the Actions secret.
 
-<p align="center"><img src="./docs/images/term-init.png" alt="Output of npx bugloop init" width="760"></p>
-<p align="center"><sub>While you paste keys and tokens the screen shows only •; the values are written only to <code>.env.local</code>.</sub></p>
+<p align="center"><img src="./docs/images/term-init-en.png" alt="Output of npx bugloop init" width="760"></p>
+<p align="center"><sub>While you paste keys and tokens the screen shows only •; the values are written only to <code>.env.local</code>. The CLI speaks your terminal's language (English or Turkish); force one with <code>--lang en</code>.</sub></p>
 
 Then run `npm run dev`; the button appears in the bottom right. It works even without any keys: reports are printed in the dev server's terminal.
 

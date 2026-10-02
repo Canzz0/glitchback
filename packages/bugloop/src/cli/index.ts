@@ -7,8 +7,11 @@ import { init } from "./init.ts";
 import { runLocalFixer } from "./local-fixer.ts";
 import { bold, dim, readEnvFiles } from "./util.ts";
 import type { ProviderChoice } from "./templates.ts";
+import { t } from "./i18n.ts";
 
-const HELP = `${bold("bugloop")} — son kullanıcı hata raporları → GitHub issue → düzeltme önerisi → PR
+const help = () =>
+  t(
+    `${bold("bugloop")} — son kullanıcı hata raporları → GitHub issue → düzeltme önerisi → PR
 
   ${bold("npx bugloop init")} [klasör]        Next.js projesine kurar (buton, endpoint, ayarlar)
       --yes                 soru sormadan, ortamdaki anahtarlarla
@@ -20,8 +23,25 @@ const HELP = `${bold("bugloop")} — son kullanıcı hata raporları → GitHub 
   ${bold("npx bugloop fix")} <issue-no>       Onaylanan öneriyi branch'e uygulayıp PR açar
   ${bold("npx bugloop serve")} [--port 8787]  Next.js olmayan siteler için ayrı rapor sunucusu
 
+  --lang tr|en              Dil (varsayılan: terminalin dili)
   GitHub Actions içinde issue numarası verilmeden çalışan suggest/fix, olayı GITHUB_EVENT_PATH'ten okur.
-`;
+`,
+    `${bold("bugloop")} — end-user bug reports → GitHub issue → suggested fix → PR
+
+  ${bold("npx bugloop init")} [folder]        Sets it up in a Next.js project (button, endpoint, settings)
+      --yes                 no questions, use the keys already in the environment
+      --no-install          do not install the package, only write the files
+      --force               overwrite existing Bugloop files
+      --provider <name>     gemini | anthropic | openai | none
+
+  ${bold("npx bugloop suggest")} <issue-no>   Writes a suggestion from this machine (works in a temporary clone)
+  ${bold("npx bugloop fix")} <issue-no>       Applies the approved suggestion to a branch and opens a PR
+  ${bold("npx bugloop serve")} [--port 8787]  Separate report server for sites that are not Next.js
+
+  --lang tr|en              Language (default: your terminal's language)
+  Inside GitHub Actions, suggest/fix without an issue number read the event from GITHUB_EVENT_PATH.
+`,
+  );
 
 function flag(args: string[], name: string): string | undefined {
   const i = args.indexOf(name);
@@ -30,12 +50,12 @@ function flag(args: string[], name: string): string | undefined {
 
 async function main() {
   const [cmd, ...args] = process.argv.slice(2);
-  const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && ["--port", "--provider", "--dir"].includes(args[i - 1])));
+  const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && ["--port", "--provider", "--dir", "--lang"].includes(args[i - 1])));
 
   switch (cmd) {
     case "init": {
       const provider = flag(args, "--provider") as ProviderChoice | undefined;
-      if (provider && !["gemini", "anthropic", "openai", "none"].includes(provider)) throw new Error(`Bilinmeyen sağlayıcı: ${provider}`);
+      if (provider && !["gemini", "anthropic", "openai", "none"].includes(provider)) throw new Error(t(`Bilinmeyen sağlayıcı: ${provider}`, `Unknown provider: ${provider}`));
       await init({
         dir: positional[0] ?? process.cwd(),
         yes: args.includes("--yes") || args.includes("-y"),
@@ -49,7 +69,7 @@ async function main() {
     case "fix": {
       const n = positional[0];
       if (!n && process.env.GITHUB_EVENT_PATH) return runFixerFromActions(cmd);
-      if (!n || !/^\d+$/.test(n)) throw new Error(`Kullanım: npx bugloop ${cmd} <issue-no>`);
+      if (!n || !/^\d+$/.test(n)) throw new Error(t(`Kullanım: npx bugloop ${cmd} <issue-no>`, `Usage: npx bugloop ${cmd} <issue-no>`));
       return runLocalFixer(cmd, Number(n), flag(args, "--dir") ?? process.cwd());
     }
     case "serve": {
@@ -65,9 +85,9 @@ async function main() {
       return;
     }
     default:
-      console.log(HELP);
+      console.log(help());
       if (cmd && cmd !== "help" && cmd !== "--help" && cmd !== "-h") {
-        console.log(dim(`Bilinmeyen komut: ${cmd}`));
+        console.log(dim(t(`Bilinmeyen komut: ${cmd}`, `Unknown command: ${cmd}`)));
         process.exitCode = 1;
       }
   }

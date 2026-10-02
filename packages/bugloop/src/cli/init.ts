@@ -11,6 +11,7 @@ import {
 import {
   ask, bold, choose, confirm, cyan, dim, gitRemoteRepo, interactive, ok, openUrl, readEnvFiles, run, skip, upsertEnv, warn,
 } from "./util.ts";
+import { t } from "./i18n.ts";
 
 export interface InitOptions {
   dir: string;
@@ -39,8 +40,8 @@ function writeIfMissing(root: string, rel: string, content: string, force: boole
 }
 
 function report(rel: string, state: "created" | "exists" | "updated") {
-  if (state === "exists") skip(`${rel} zaten var, dokunulmadı`);
-  else ok(`${rel} ${state === "created" ? "oluşturuldu" : "güncellendi"}`);
+  if (state === "exists") skip(t(`${rel} zaten var, dokunulmadı`, `${rel} already exists, left as is`));
+  else ok(`${rel} ${state === "created" ? t("oluşturuldu", "created") : t("güncellendi", "updated")}`);
 }
 
 function install(project: NextProject): boolean {
@@ -53,17 +54,17 @@ function install(project: NextProject): boolean {
     tmp = mkdtempSync(join(tmpdir(), "bugloop-pack-"));
     const packed = run("npm", ["pack", "--silent", "--pack-destination", tmp], { cwd: packageRoot, quiet: true });
     if (!packed.ok) {
-      warn(`Yerel paket hazırlanamadı: ${packed.stderr}`);
+      warn(`${t("Yerel paket hazırlanamadı", "Could not pack the local package")}: ${packed.stderr}`);
       return false;
     }
     const tgz = readdirSync(tmp).find((f) => f.endsWith(".tgz"));
     if (!tgz) {
-      warn("Yerel paket hazırlanamadı.");
+      warn(t("Yerel paket hazırlanamadı.", "Could not pack the local package."));
       return false;
     }
     spec = join(tmp, tgz);
   }
-  console.log(dim(`$ ${pm} ${add.join(" ")} ${runningFromCheckout ? `${packageName()} (yerel)` : spec}`));
+  console.log(dim(`$ ${pm} ${add.join(" ")} ${runningFromCheckout ? `${packageName()} (${t("yerel", "local")})` : spec}`));
   const r = run(pm, [...add, spec], { cwd: project.root });
   if (tmp) rmSync(tmp, { recursive: true, force: true });
   return r.ok;
@@ -74,10 +75,10 @@ export async function init(opts: InitOptions) {
   const detected = detectNext(root);
   if (!detected.ok) {
     console.log(`\n${detected.reason}\n`);
-    console.log("Next.js dışındaki siteler için ayrı sunucu ve tek satırlık script:");
-    console.log(dim(`  npx ${packageName()} serve           # raporları karşılar (BUGLOOP_ALLOWED_ORIGINS gerekir)`));
+    console.log(t("Next.js dışındaki siteler için ayrı sunucu ve tek satırlık script:", "For sites that are not Next.js, run a separate server and add one script tag:"));
+    console.log(dim(`  npx ${packageName()} serve           # ${t("raporları karşılar (BUGLOOP_ALLOWED_ORIGINS gerekir)", "receives reports (needs BUGLOOP_ALLOWED_ORIGINS)")}`));
     console.log(dim(`  <script src="https://unpkg.com/${packageName()}/dist/bugloop.global.js"></script>`));
-    console.log(dim('  <script>Bugloop.init({ endpoint: "https://rapor-sunucunuz" })</script>\n'));
+    console.log(dim(`  <script>Bugloop.init({ endpoint: "${t("https://rapor-sunucunuz", "https://your-report-server")}" })</script>\n`));
     process.exitCode = 1;
     return;
   }
@@ -91,9 +92,9 @@ export async function init(opts: InitOptions) {
 
   // 1. Package
   if (opts.install) {
-    if (install(project)) ok(`${packageName()} paketi kuruldu`);
-    else warn(`Kurulum başarısız. Elle deneyin: ${project.packageManager} ${project.packageManager === "npm" ? "install" : "add"} ${packageName()}`);
-  } else skip("paket kurulumu atlandı (--no-install)");
+    if (install(project)) ok(t(`${packageName()} paketi kuruldu`, `${packageName()} installed`));
+    else warn(`${t("Kurulum başarısız. Elle deneyin", "Install failed. Try it yourself")}: ${project.packageManager} ${project.packageManager === "npm" ? "install" : "add"} ${packageName()}`);
+  } else skip(t("paket kurulumu atlandı (--no-install)", "package install skipped (--no-install)"));
 
   // 2. Code: endpoint, button, layout
   const routeRel = `${project.appDir}/api/bugloop/route.${project.typescript ? "ts" : "js"}`;
@@ -103,40 +104,46 @@ export async function init(opts: InitOptions) {
     const layoutAbs = join(root, project.layoutFile);
     const source = readFileSync(layoutAbs, "utf8");
     const patched = patchLayout(source, project.componentImport);
-    if (patched === source) skip(`${project.layoutFile} zaten <Bugloop /> içeriyor`);
+    if (patched === source) skip(t(`${project.layoutFile} zaten <Bugloop /> içeriyor`, `${project.layoutFile} already has <Bugloop />`));
     else if (patched) {
       writeFileSync(layoutAbs, patched);
-      ok(`${project.layoutFile} → <Bugloop /> eklendi`);
-    } else warn(`${project.layoutFile} otomatik düzenlenemedi. <body> içine ekleyin: <Bugloop />  (import { Bugloop } from "${project.componentImport}")`);
-  } else warn(`${project.appDir}/layout bulunamadı; <Bugloop /> bileşenini kök layout'a ekleyin.`);
+      ok(t(`${project.layoutFile} → <Bugloop /> eklendi`, `${project.layoutFile} → <Bugloop /> added`));
+    } else warn(t(`${project.layoutFile} otomatik düzenlenemedi. <body> içine ekleyin: <Bugloop />  (import { Bugloop } from "${project.componentImport}")`, `Could not edit ${project.layoutFile} automatically. Add <Bugloop /> inside <body>  (import { Bugloop } from "${project.componentImport}")`));
+  } else warn(t(`${project.appDir}/layout bulunamadı; <Bugloop /> bileşenini kök layout'a ekleyin.`, `${project.appDir}/layout not found; add the <Bugloop /> component to your root layout.`));
 
   // 3. Keys
   console.log("");
   let jevKey = process.env.TYPESAFE_API_KEY || env.TYPESAFE_API_KEY || "";
   if (!jevKey && !opts.yes) {
-    console.log(`${bold("Jev (TypeSafe)")} her raporu sınıflar: frontend/backend, ciddiyet, zorluk. ${dim("https://docs.typesafe.ai")}`);
-    jevKey = await ask2("  TYPESAFE_API_KEY (Enter: şimdilik atla): ", { secret: true });
-  } else if (jevKey) skip("TYPESAFE_API_KEY zaten tanımlı");
+    console.log(`${bold("Jev (TypeSafe)")} ${t("her raporu sınıflar: frontend/backend, ciddiyet, zorluk.", "triages every report: frontend/backend, severity, difficulty.")} ${dim("https://docs.typesafe.ai")}`);
+    jevKey = await ask2(t("  TYPESAFE_API_KEY (Enter: şimdilik atla): ", "  TYPESAFE_API_KEY (Enter to skip for now): "), { secret: true });
+  } else if (jevKey) skip(t("TYPESAFE_API_KEY zaten tanımlı", "TYPESAFE_API_KEY is already set"));
 
   let ghToken = process.env.BUGLOOP_GITHUB_TOKEN || env.BUGLOOP_GITHUB_TOKEN || "";
   if (!ghToken && !opts.yes && repo) {
-    console.log(`\n${bold("GitHub issue'ları")} için sadece Issues izni olan bir token gerekiyor. Sayfayı açıyorum;`);
-    console.log(`  "Repository access" kısmında ${cyan(repo)} reposunu seçip "Generate token"a basın.`);
+    console.log(t(
+      `\n${bold("GitHub issue'ları")} için sadece Issues izni olan bir token gerekiyor. Sayfayı açıyorum;`,
+      `\n${bold("GitHub issues")} need a token with only the Issues permission. Opening the page;`,
+    ));
+    console.log(t(
+      `  "Repository access" kısmında ${cyan(repo)} reposunu seçip "Generate token"a basın.`,
+      `  under "Repository access" pick ${cyan(repo)}, then press "Generate token".`,
+    ));
     const url = tokenUrl(repo);
     console.log(dim(`  ${url}`));
     if (interactive()) openUrl(url);
-    ghToken = await ask2("  Token (Enter: şimdilik atla, raporlar terminale yazılır): ", { secret: true });
-  } else if (ghToken) skip("BUGLOOP_GITHUB_TOKEN zaten tanımlı");
+    ghToken = await ask2(t("  Token (Enter: şimdilik atla, raporlar terminale yazılır): ", "  Token (Enter to skip; reports go to the terminal): "), { secret: true });
+  } else if (ghToken) skip(t("BUGLOOP_GITHUB_TOKEN zaten tanımlı", "BUGLOOP_GITHUB_TOKEN is already set"));
 
   const knownProvider = (Object.keys(PROVIDERS) as (keyof typeof PROVIDERS)[]).find((p) => process.env[PROVIDERS[p].keyEnv] || env[PROVIDERS[p].keyEnv]);
   let provider: ProviderChoice = opts.provider ?? knownProvider ?? "none";
   if (!opts.provider && !knownProvider && !opts.yes) {
     console.log("");
-    provider = (await choose(`${bold("Kod önerileri")} hangi modelle yazılsın?`, [
+    provider = (await choose(t(`${bold("Kod önerileri")} hangi modelle yazılsın?`, `Which model should write ${bold("code suggestions")}?`), [
       { key: "gemini", label: "Google Gemini" },
       { key: "anthropic", label: "Anthropic Claude" },
       { key: "openai", label: "OpenAI" },
-      { key: "none", label: "Şimdilik yok (sadece rapor toplansın)" },
+      { key: "none", label: t("Şimdilik yok (sadece rapor toplansın)", "None for now (only collect reports)") },
     ])) as ProviderChoice;
   }
   let modelKey = "";
@@ -144,8 +151,8 @@ export async function init(opts: InitOptions) {
     const p = PROVIDERS[provider];
     modelKey = process.env[p.keyEnv] || env[p.keyEnv] || "";
     if (!modelKey && !opts.yes) {
-      console.log(dim(`  Anahtar: ${p.keyUrl}`));
-      modelKey = await ask2(`  ${p.keyEnv} (Enter: atla): `, { secret: true });
+      console.log(dim(`  ${t("Anahtar", "Key")}: ${p.keyUrl}`));
+      modelKey = await ask2(`  ${p.keyEnv} (${t("Enter: atla", "Enter to skip")}): `, { secret: true });
     }
   }
 
@@ -162,7 +169,7 @@ export async function init(opts: InitOptions) {
   }
   const changed = upsertEnv(join(root, ".env.local"), envValues);
   if (changed.length) ok(`.env.local → ${changed.join(", ")}`);
-  else skip(".env.local değişmedi");
+  else skip(t(".env.local değişmedi", ".env.local unchanged"));
 
   const yml = bugloopYml({
     allowed: allowedPaths(project),
@@ -182,24 +189,27 @@ export async function init(opts: InitOptions) {
   // 5. GitHub: labels and the Actions secret, through the GitHub CLI when it is logged in
   if (repo) {
     if (opts.useGh !== false && ghReady()) {
-      if (ghCreateLabels(repo)) ok(`GitHub etiketleri hazır (${repo})`);
+      if (ghCreateLabels(repo)) ok(t(`GitHub etiketleri hazır (${repo})`, `GitHub labels ready (${repo})`));
       if (modelKey && provider !== "none") {
         const name = PROVIDERS[provider].keyEnv;
-        if (opts.yes || (await confirm(`${name} anahtarını GitHub Actions secret'ı olarak kaydedeyim mi?`))) {
-          if (ghSetSecret(repo, name, modelKey)) ok(`GitHub secret ${name} kaydedildi`);
-          else warn(`${name} secret'ı kaydedilemedi; Settings → Secrets and variables → Actions'tan ekleyin.`);
+        if (opts.yes || (await confirm(t(`${name} anahtarını GitHub Actions secret'ı olarak kaydedeyim mi?`, `Save ${name} as a GitHub Actions secret?`)))) {
+          if (ghSetSecret(repo, name, modelKey)) ok(t(`GitHub secret ${name} kaydedildi`, `GitHub secret ${name} saved`));
+          else warn(t(`${name} secret'ı kaydedilemedi; Settings → Secrets and variables → Actions'tan ekleyin.`, `Could not save the ${name} secret; add it under Settings → Secrets and variables → Actions.`));
         }
       }
     } else if (provider !== "none") {
-      warn(`GitHub Actions için repo ayarlarına ${PROVIDERS[provider].keyEnv} secret'ını ekleyin (ya da \`gh auth login\` sonrası init'i tekrar çalıştırın).`);
+      warn(t(`GitHub Actions için repo ayarlarına ${PROVIDERS[provider].keyEnv} secret'ını ekleyin (ya da \`gh auth login\` sonrası init'i tekrar çalıştırın).`, `Add the ${PROVIDERS[provider].keyEnv} secret to your repo settings for GitHub Actions (or run init again after \`gh auth login\`).`));
     }
-  } else warn("GitHub remote'u bulunamadı; issue ve öneriler için repoyu GitHub'a bağlayın.");
+  } else warn(t("GitHub remote'u bulunamadı; issue ve öneriler için repoyu GitHub'a bağlayın.", "No GitHub remote found; connect the repo to GitHub for issues and suggestions."));
 
   // 6. Done
   const devCmd = project.packageManager === "npm" ? "npm run dev" : `${project.packageManager} dev`;
-  console.log(`\n${bold("Hazır.")} ${cyan(devCmd)} ile açın; sağ altta "Sorun bildir" butonu çıkar.`);
-  if (!ghToken) console.log(dim("  GitHub token'ı olmadan raporlar geliştirme sunucusunun terminaline yazılır."));
-  if (!jevKey) console.log(dim("  Jev anahtarı olmadan triyaj kurallarla yapılır; eklemek için init'i tekrar çalıştırın."));
-  console.log(dim("  Canlıya alırken .env.local'deki BUGLOOP_* ve anahtar değişkenlerini hosting ayarlarına da ekleyin."));
-  console.log(dim(`  Öneriyi hemen denemek için: npx ${packageName()} suggest <issue-no>\n`));
+  console.log(t(
+    `\n${bold("Hazır.")} ${cyan(devCmd)} ile açın; sağ altta "Sorun bildir" butonu çıkar.`,
+    `\n${bold("Done.")} Start it with ${cyan(devCmd)}; the "Report a problem" button appears in the bottom right.`,
+  ));
+  if (!ghToken) console.log(dim(t("  GitHub token'ı olmadan raporlar geliştirme sunucusunun terminaline yazılır.", "  Without a GitHub token, reports are printed in the dev server's terminal.")));
+  if (!jevKey) console.log(dim(t("  Jev anahtarı olmadan triyaj kurallarla yapılır; eklemek için init'i tekrar çalıştırın.", "  Without a Jev key, triage uses rules; run init again to add one.")));
+  console.log(dim(t("  Canlıya alırken .env.local'deki BUGLOOP_* ve anahtar değişkenlerini hosting ayarlarına da ekleyin.", "  When you go live, add the BUGLOOP_* and key variables from .env.local to your hosting settings.")));
+  console.log(dim(`  ${t("Öneriyi hemen denemek için", "To try a suggestion right away")}: npx ${packageName()} suggest <issue-no>\n`));
 }

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { NextProject } from "./detect.ts";
 import type { ScannedRoute } from "./routes.ts";
+import { lang, t } from "./i18n.ts";
 
 export type ProviderChoice = "gemini" | "anthropic" | "openai" | "none";
 
@@ -27,7 +28,10 @@ export const PROVIDERS: Record<Exclude<ProviderChoice, "none">, { label: string;
 
 export function routeFile(): string {
   return [
-    `// Bugloop: "Sorun bildir" raporlarını karşılar. Ayarlar .env.local içinde (BUGLOOP_*, TYPESAFE_API_KEY).`,
+    t(
+      `// Bugloop: "Sorun bildir" raporlarını karşılar. Ayarlar .env.local içinde (BUGLOOP_*, TYPESAFE_API_KEY).`,
+      `// Bugloop: receives "Report a problem" reports. Settings live in .env.local (BUGLOOP_*, TYPESAFE_API_KEY).`,
+    ),
     `export { GET, POST, OPTIONS } from "${packageName()}/next";`,
     `export const runtime = "nodejs";`,
     "",
@@ -43,9 +47,19 @@ export function componentFile(project: NextProject): string {
     `import { init } from "${packageName()}/widget";`,
     "",
     `/**`,
-    ` * Sağ alttaki "Sorun bildir" butonu. Raporlar /api/bugloop adresine gider.`,
-    ` * Başarısız istekler (400+) ve yakalanmamış hatalar, kimse butona basmasa da otomatik rapor olur.`,
-    ` * Kapatmak için: init({ autoReport: false }). Diğer seçenekler (labels, button: false, getRoute...) README'de.`,
+    ...(lang() === "tr"
+      ? [
+          ` * Sağ alttaki "Sorun bildir" butonu. Raporlar /api/bugloop adresine gider.`,
+          ` * Başarısız istekler (400+) ve yakalanmamış hatalar, kimse butona basmasa da otomatik rapor olur.`,
+          ` * Kapatmak için: init({ autoReport: false }). Diğer seçenekler (labels, button: false, getRoute...) README'de.`,
+          ` * Butonun dili sayfadan otomatik seçilir (locale: "auto").`,
+        ]
+      : [
+          ` * The "Report a problem" button in the bottom right. Reports go to /api/bugloop.`,
+          ` * Failed requests (400+) and uncaught errors are reported automatically, even without a click.`,
+          ` * To turn that off: init({ autoReport: false }). Other options (labels, button: false, getRoute...) are in the README.`,
+          ` * The button's language follows the page (locale: "auto").`,
+        ]),
     ` */`,
     `export function Bugloop()${ts ? ": null" : ""} {`,
     `  useEffect(() => {`,
@@ -85,29 +99,32 @@ export function bugloopYml(opts: {
 }): string {
   const models = PROVIDERS[opts.provider === "none" ? "gemini" : opts.provider].models;
   const lines = [
-    "# Bugloop ayarları. `npx bugloop init` oluşturdu; elle düzenleyebilirsiniz.",
+    t("# Bugloop ayarları. `npx bugloop init` oluşturdu; elle düzenleyebilirsiniz.", "# Bugloop settings. Written by `npx bugloop init`; edit freely."),
     "",
-    "# Model yalnızca bu klasörlerdeki dosyaları okuyup değiştirebilir.",
+    t("# Model yalnızca bu klasörlerdeki dosyaları okuyup değiştirebilir.", "# The model can only read and change files under these folders."),
     "allowed_paths:",
     ...opts.allowed.map((p) => `  - ${q(p)}`),
     "",
-    "# İzinli klasörlerde olsalar bile asla dokunulmaz: sunucu kodu, kimlik doğrulama, veritabanı, ayarlar.",
+    t("# İzinli klasörlerde olsalar bile asla dokunulmaz: sunucu kodu, kimlik doğrulama, veritabanı, ayarlar.", "# Never touched, even inside allowed folders: server code, auth, database, config."),
     "deny_paths:",
     ...opts.deny.map((p) => `  - ${q(p)}`),
     "",
-    "# Zorluk kademesine göre kod modeli, \"sağlayıcı:model\" biçiminde (anthropic, openai, gemini, openrouter, ollama).",
-    ...(opts.provider === "none" ? ["# Henüz anahtar girilmedi: GitHub'da GEMINI_API_KEY secret'ı ekleyince çalışır ya da başka sağlayıcı yazın."] : []),
+    t('# Zorluk kademesine göre kod modeli, "sağlayıcı:model" biçiminde (anthropic, openai, gemini, openrouter, ollama).', '# Code model per difficulty tier, as "provider:model" (anthropic, openai, gemini, openrouter, ollama).'),
+    ...(opts.provider === "none"
+      ? [t("# Henüz anahtar girilmedi: GitHub'da GEMINI_API_KEY secret'ı ekleyince çalışır ya da başka sağlayıcı yazın.", "# No key entered yet: works once you add a GEMINI_API_KEY secret on GitHub, or write another provider.")]
+      : []),
     "models:",
     `  low: ${q(models[0])}`,
     `  mid: ${q(models[1])}`,
     `  high: ${q(models[2])}`,
     "",
-    "# Sayfa → o sayfayı oluşturan dosyalar. Uygulamanızdaki sayfalar taranarak bulundu.",
+    t("# Sayfa → o sayfayı oluşturan dosyalar. Uygulamanızdaki sayfalar taranarak bulundu.", "# Page → the files that build it. Found by scanning your app's pages."),
     "routes:",
     ...(opts.routes.length ? opts.routes.flatMap((r) => [`  ${q(r.url)}:`, ...r.specs.map((s) => `    - ${q(s)}`)]) : ["  {}"]),
     "",
     "max_changed_lines: 300",
-    "language: tr",
+    t("# Öneri yorumlarının dili: tr ya da en", "# Language of suggestion comments: en or tr"),
+    `language: ${lang()}`,
     "",
   ];
   return lines.join("\n");
@@ -132,9 +149,23 @@ export const packageName = () => packageInfo().name;
 
 /** One workflow, two jobs: a read-only suggestion, and a write job that only a teammate's label can start. */
 export function workflowYml(version = packageVersion(), name = packageName()): string {
-  return `# Bugloop: frontend hata raporlarına düzeltme önerir, ekip onaylayınca PR açar.
+  const header = t(
+    `# Bugloop: frontend hata raporlarına düzeltme önerir, ekip onaylayınca PR açar.
 # Öneri adımı yalnızca okuma izniyle çalışır. Koda yazma, bir ekip üyesi issue'ya
-# \`autofix\` etiketini eklediğinde başlar ve yalnızca bot yorumundaki diff'i uygular.
+# \`autofix\` etiketini eklediğinde başlar ve yalnızca bot yorumundaki diff'i uygular.`,
+    `# Bugloop: suggests fixes for frontend bug reports and opens a PR once the team approves.
+# The suggestion step runs with read-only access. Writing code starts only when a teammate
+# adds the \`autofix\` label, and only the diff from the bot's comment is applied.`,
+  );
+  const keyNote = t("# Yalnızca .bugloop.yml'deki sağlayıcının anahtarı gerekir.", "# Only the key of the provider in .bugloop.yml is needed.");
+  const prNote = t(
+    `# GITHUB_TOKEN ile açılan PR'lar CI'ı tetiklemez. Testlerin PR'da çalışması için
+          # isteğe bağlı BUGLOOP_TOKEN secret'ı (Contents + Pull requests yazma izinli token) ekleyin.`,
+    `# PRs opened with GITHUB_TOKEN do not trigger CI. To run your tests on the PR, add an
+          # optional BUGLOOP_TOKEN secret (a token with Contents + Pull requests write access).`,
+  );
+  const noModel = t("# Bu adım modeli çağırmaz; model anahtarı verilmez.", "# This step never calls a model; no model key is passed.");
+  return `${header}
 name: Bugloop
 
 on:
@@ -168,7 +199,7 @@ jobs:
       - run: npx -y ${name}@${version} suggest
         env:
           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-          # Yalnızca .bugloop.yml'deki sağlayıcının anahtarı gerekir.
+          ${keyNote}
           GEMINI_API_KEY: \${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
@@ -187,13 +218,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # GITHUB_TOKEN ile açılan PR'lar CI'ı tetiklemez. Testlerin PR'da çalışması için
-          # isteğe bağlı BUGLOOP_TOKEN secret'ı (Contents + Pull requests yazma izinli token) ekleyin.
+          ${prNote}
           token: \${{ secrets.BUGLOOP_TOKEN || secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Bu adım modeli çağırmaz; model anahtarı verilmez.
+      ${noModel}
       - run: npx -y ${name}@${version} fix
         env:
           GITHUB_TOKEN: \${{ secrets.BUGLOOP_TOKEN || secrets.GITHUB_TOKEN }}
@@ -205,7 +235,7 @@ export function tokenUrl(repo: string | null): string {
   const owner = repo?.split("/")[0];
   const params = new URLSearchParams({
     name: `Bugloop ${repo?.split("/")[1] ?? ""}`.trim().slice(0, 40),
-    description: "Bugloop: son kullanıcı raporlarını bu repoda issue olarak açar. Sadece Issues: write.",
+    description: t("Bugloop: son kullanıcı raporlarını bu repoda issue olarak açar. Sadece Issues: write.", "Bugloop: opens end-user reports as issues in this repo. Issues: write only."),
     expires_in: "366",
     issues: "write",
   });

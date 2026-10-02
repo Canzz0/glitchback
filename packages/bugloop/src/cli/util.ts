@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
+import { t } from "./i18n.ts";
 
 const tty = process.stdout.isTTY && !process.env.NO_COLOR;
 const paint = (code: number) => (s: string) => (tty ? `\x1b[${code}m${s}\x1b[0m` : s);
@@ -86,14 +87,15 @@ export async function choose(question: string, options: { key: string; label: st
   if (!interactive()) return options[0].key;
   console.log(question);
   options.forEach((o, i) => console.log(`  ${cyan(String(i + 1))}) ${o.label}`));
-  const answer = await ask(`Seçim [1]: `);
+  const answer = await ask(t("Seçim [1]: ", "Choice [1]: "));
   const i = Number(answer || "1") - 1;
   return options[i]?.key ?? options[0].key;
 }
 
 export async function confirm(question: string, fallback = true): Promise<boolean> {
   if (!interactive()) return fallback;
-  const a = (await ask(`${question} ${fallback ? "[E/h]" : "[e/H]"} `)).toLowerCase();
+  const yes = t("e", "y");
+  const a = (await ask(`${question} ${fallback ? `[${yes.toUpperCase()}/${t("h", "n")}]` : `[${yes}/${t("H", "N")}]`} `)).toLowerCase();
   if (!a) return fallback;
   return a.startsWith("e") || a.startsWith("y");
 }

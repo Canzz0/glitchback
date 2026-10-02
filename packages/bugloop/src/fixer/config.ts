@@ -23,7 +23,7 @@ const RepoConfig = z.object({
   max_context_chars: z.number().default(120_000),
   max_changed_lines: z.number().default(300),
   /** Language of the analysis comments. */
-  language: z.enum(["tr", "en"]).default("tr"),
+  language: z.enum(["tr", "en"]).default("en"),
   /** Login of the account that posts suggestions; only its suggestions are applied. */
   bot_login: z.string().default("github-actions[bot]"),
 });

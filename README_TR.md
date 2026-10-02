@@ -30,7 +30,7 @@ Tek komut şunları yapar:
 - Bilgisayarınızda `gh` ile giriş yapılmışsa GitHub etiketlerini ve Actions secret'ını da kendisi oluşturur.
 
 <p align="center"><img src="./docs/images/term-init.png" alt="npx bugloop init çıktısı" width="760"></p>
-<p align="center"><sub>Anahtar ve token'lar yazılırken ekranda yalnızca • görünür; değerler sadece <code>.env.local</code>'e yazılır.</sub></p>
+<p align="center"><sub>Anahtar ve token'lar yazılırken ekranda yalnızca • görünür; değerler sadece <code>.env.local</code>'e yazılır. CLI terminalin dilini kullanır (Türkçe ya da İngilizce); <code>--lang tr</code> ile sabitlenebilir.</sub></p>
 
 Sonra `npm run dev` çalıştırın; sağ altta buton çıkar. Hiçbir anahtar girmeseniz bile çalışır: raporlar geliştirme sunucusunun terminaline yazılır.
 
