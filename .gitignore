@@ -4,5 +4,5 @@ dist
 *.tsbuildinfo
 
 # Generated on npm pack (scripts/package-readme.mjs)
-packages/patchback/README.md
-packages/patchback/LICENSE
+packages/bugloop/README.md
+packages/bugloop/LICENSE

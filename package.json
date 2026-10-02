@@ -1,17 +1,17 @@
 {
-  "name": "patchback",
+  "name": "bugloop-monorepo",
   "private": true,
-  "description": "Patchback monorepo: tek paket packages/patchback",
+  "description": "Bugloop monorepo: tek paket packages/bugloop (npm: bugloop)",
   "license": "MIT",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w patchback",
-    "typecheck": "tsc -p packages/patchback",
-    "test": "node --test --experimental-strip-types packages/patchback/test/*.test.ts",
-    "patchback": "node packages/patchback/dist/cli.js",
-    "serve": "node packages/patchback/dist/cli.js serve"
+    "build": "npm run build -w bugloop",
+    "typecheck": "tsc -p packages/bugloop",
+    "test": "node --test --experimental-strip-types packages/bugloop/test/*.test.ts",
+    "bugloop": "node packages/bugloop/dist/cli.js",
+    "serve": "node packages/bugloop/dist/cli.js serve"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
