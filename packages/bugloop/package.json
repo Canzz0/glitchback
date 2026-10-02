@@ -1,6 +1,6 @@
 {
   "name": "bugloop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A \"Report a problem\" button that also reports failed requests and uncaught errors automatically, triages them, opens GitHub issues and suggests fixes as reviewable PRs. Setup: npx bugloop init",
   "license": "MIT",
   "homepage": "https://github.com/Canzz0/patchback#readme",
