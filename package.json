@@ -1,17 +1,17 @@
 {
-  "name": "bugloop-monorepo",
+  "name": "glitchback-monorepo",
   "private": true,
-  "description": "Bugloop monorepo: tek paket packages/bugloop (npm: bugloop)",
+  "description": "Glitchback monorepo: tek paket packages/glitchback (npm: glitchback)",
   "license": "MIT",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w bugloop",
-    "typecheck": "tsc -p packages/bugloop",
-    "test": "node --test --experimental-strip-types packages/bugloop/test/*.test.ts",
-    "bugloop": "node packages/bugloop/dist/cli.js",
-    "serve": "node packages/bugloop/dist/cli.js serve"
+    "build": "npm run build -w glitchback",
+    "typecheck": "tsc -p packages/glitchback",
+    "test": "node --test --experimental-strip-types packages/glitchback/test/*.test.ts",
+    "glitchback": "node packages/glitchback/dist/cli.js",
+    "serve": "node packages/glitchback/dist/cli.js serve"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

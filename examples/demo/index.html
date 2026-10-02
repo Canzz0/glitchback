@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bugloop widget demosu</title>
+  <title>Glitchback widget demosu</title>
   <style>
-    :root { --bugloop-accent: #1f4fd1; }
+    :root { --glitchback-accent: #1f4fd1; }
     body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; color: #1b1d22; line-height: 1.6; }
     h1 { font-size: 22px; }
     button.demo { padding: 10px 16px; font-size: 15px; border: 1px solid #d7dae0; border-radius: 8px; background: #fff; cursor: pointer; }
@@ -13,17 +13,17 @@
   </style>
 </head>
 <body>
-  <h1>Bugloop widget demosu</h1>
+  <h1>Glitchback widget demosu</h1>
   <p>Sağ alttaki <b>Sorun bildir</b> butonuna basın. Aşağıdaki iki buton bilerek hata üretir; önce onlara basıp sonra bildirim açarsanız, konsol hatasının ve başarısız isteğin bildirime otomatik eklendiğini görürsünüz.</p>
   <p>
     <button class="demo" onclick="window.__missing.call()">JS hatası üret</button>
     <button class="demo" onclick="fetch('/api/pay', { method: 'POST' })">500 isteği üret</button>
   </p>
-  <p>Önce rapor sunucusunu açın: <code>BUGLOOP_ALLOWED_ORIGINS=http://localhost:3000 npm run serve</code>, sonra bu klasörü <code>npx serve examples/demo</code> ile yayınlayın. GitHub token'ı yoksa raporlar sunucunun terminaline yazılır.</p>
+  <p>Önce rapor sunucusunu açın: <code>GLITCHBACK_ALLOWED_ORIGINS=http://localhost:3000 npm run serve</code>, sonra bu klasörü <code>npx serve examples/demo</code> ile yayınlayın. GitHub token'ı yoksa raporlar sunucunun terminaline yazılır.</p>
 
-  <script src="../../packages/bugloop/dist/bugloop.global.js"></script>
+  <script src="../../packages/glitchback/dist/glitchback.global.js"></script>
   <script>
-    Bugloop.init({ endpoint: "http://localhost:8787", appVersion: "demo-build", askContact: true });
+    Glitchback.init({ endpoint: "http://localhost:8787", appVersion: "demo-build", askContact: true });
   </script>
 </body>
 </html>

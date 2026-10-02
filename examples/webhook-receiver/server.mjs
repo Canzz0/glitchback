@@ -20,7 +20,7 @@ createServer((req, res) => {
   let body = "";
   req.on("data", (c) => (body += c));
   req.on("end", () => {
-    if (!verify(body, req.headers["x-bugloop-timestamp"], req.headers["x-bugloop-signature"])) { res.writeHead(401).end("bad signature"); return; }
+    if (!verify(body, req.headers["x-glitchback-timestamp"], req.headers["x-glitchback-signature"])) { res.writeHead(401).end("bad signature"); return; }
     const payload = JSON.parse(body);
     console.log(`[${payload.event}] ${payload.data.triage.area} → ${payload.issue_url}`);
     console.log("  mesaj:", payload.data.report.user_message);
