@@ -41,7 +41,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup && tsc -p tsconfig.build.json",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup && tsc -p tsconfig.build.json && node ../../scripts/prune-types.mjs dist/types",
     "prepack": "node ../../scripts/package-readme.mjs",
     "prepublishOnly": "npm run build"
   },

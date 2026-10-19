@@ -9,6 +9,7 @@ export const bold = paint(1);
 export const dim = paint(2);
 export const green = paint(32);
 export const yellow = paint(33);
+export const red = paint(31);
 export const cyan = paint(36);
 
 export const ok = (msg: string) => console.log(`${green("✔")} ${msg}`);
@@ -83,13 +84,18 @@ function askSecret(question: string): Promise<string> {
   });
 }
 
-export async function choose(question: string, options: { key: string; label: string }[]): Promise<string> {
-  if (!interactive()) return options[0].key;
+/**
+ * Numbered menu. Enter (or no terminal, or an unknown answer) picks `fallback`, which defaults
+ * to the first option; pass the "skip" option's key when skipping is the safe default.
+ */
+export async function choose(question: string, options: { key: string; label: string }[], fallback = options[0].key): Promise<string> {
+  if (!interactive()) return fallback;
+  const def = Math.max(0, options.findIndex((o) => o.key === fallback)) + 1;
   console.log(question);
   options.forEach((o, i) => console.log(`  ${cyan(String(i + 1))}) ${o.label}`));
-  const answer = await ask(t("Seçim [1]: ", "Choice [1]: "));
-  const i = Number(answer || "1") - 1;
-  return options[i]?.key ?? options[0].key;
+  const answer = await ask(t(`Seçim [${def}]: `, `Choice [${def}]: `));
+  const i = Number(answer || def) - 1;
+  return options[i]?.key ?? fallback;
 }
 
 export async function confirm(question: string, fallback = true): Promise<boolean> {

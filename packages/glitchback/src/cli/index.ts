@@ -3,9 +3,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runFixerFromActions } from "../fixer/run.ts";
 import { serve } from "../server/serve.ts";
+import { doctor } from "./doctor.ts";
 import { init } from "./init.ts";
 import { runLocalFixer } from "./local-fixer.ts";
-import { bold, dim, readEnvFiles } from "./util.ts";
+import { bold, dim, interactive, readEnvFiles } from "./util.ts";
 import type { ProviderChoice } from "./templates.ts";
 import { t } from "./i18n.ts";
 
@@ -13,11 +14,18 @@ const help = () =>
   t(
     `${bold("glitchback")} — son kullanıcı hata raporları → GitHub issue → düzeltme önerisi → PR
 
+  ${bold("npx glitchback")}                      Kurulum menüsü: Otomatik ya da Manuel
   ${bold("npx glitchback init")} [klasör]        Next.js projesine kurar (buton, endpoint, ayarlar)
+      --auto                menüsüz otomatik kurulum (gerekenleri sorar)
+      --manual              hiçbir dosyaya dokunmadan adım adım rehber gösterir
       --yes                 soru sormadan, ortamdaki anahtarlarla
       --no-install          paketi kurma, sadece dosyaları yaz
       --force               var olan Glitchback dosyalarının üstüne yaz
       --provider <ad>       gemini | anthropic | openai | none
+
+  ${bold("npx glitchback doctor")} [klasör]      Kurulumu kontrol eder: ne hazır, ne eksik, nasıl düzelir
+      --port <n>            geliştirme sunucusunun portu (varsayılan 3000)
+      --test                çalışan geliştirme sunucusuna örnek bir rapor gönderir
 
   ${bold("npx glitchback suggest")} <issue-no>   Bu makinede öneri yazar (geçici klonda çalışır)
   ${bold("npx glitchback fix")} <issue-no>       Onaylanan öneriyi branch'e uygulayıp PR açar
@@ -28,11 +36,18 @@ const help = () =>
 `,
     `${bold("glitchback")} — end-user bug reports → GitHub issue → suggested fix → PR
 
+  ${bold("npx glitchback")}                      Setup menu: Automatic or Manual
   ${bold("npx glitchback init")} [folder]        Sets it up in a Next.js project (button, endpoint, settings)
+      --auto                automatic setup without the menu (asks for what is needed)
+      --manual              changes nothing, shows a step-by-step guide
       --yes                 no questions, use the keys already in the environment
       --no-install          do not install the package, only write the files
       --force               overwrite existing Glitchback files
       --provider <name>     gemini | anthropic | openai | none
+
+  ${bold("npx glitchback doctor")} [folder]      Checks the setup: what is ready, what is missing, how to fix it
+      --port <n>            dev server port (default 3000)
+      --test                sends a sample report through the running dev server
 
   ${bold("npx glitchback suggest")} <issue-no>   Writes a suggestion from this machine (works in a temporary clone)
   ${bold("npx glitchback fix")} <issue-no>       Applies the approved suggestion to a branch and opens a PR
@@ -52,17 +67,32 @@ async function main() {
   const [cmd, ...args] = process.argv.slice(2);
   const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && ["--port", "--provider", "--dir", "--lang"].includes(args[i - 1])));
 
+  // `npx glitchback` on its own in a terminal: the setup menu, in this folder.
+  if (cmd === undefined && interactive()) {
+    await init({ dir: process.cwd(), yes: false, install: true, force: false });
+    return;
+  }
+
   switch (cmd) {
     case "init": {
       const provider = flag(args, "--provider") as ProviderChoice | undefined;
       if (provider && !["gemini", "anthropic", "openai", "none"].includes(provider)) throw new Error(t(`Bilinmeyen sağlayıcı: ${provider}`, `Unknown provider: ${provider}`));
+      const yes = args.includes("--yes") || args.includes("-y");
       await init({
         dir: positional[0] ?? process.cwd(),
-        yes: args.includes("--yes") || args.includes("-y"),
+        yes,
+        mode: args.includes("--manual") ? "manual" : args.includes("--auto") || yes ? "auto" : undefined,
         install: !args.includes("--no-install"),
         force: args.includes("--force"),
         provider,
       });
+      return;
+    }
+    case "doctor": {
+      const port = Number(flag(args, "--port") ?? 3000);
+      if (!Number.isInteger(port) || port <= 0) throw new Error(t("--port bir sayı olmalı", "--port must be a number"));
+      const r = await doctor({ dir: positional[0] ?? process.cwd(), port, test: args.includes("--test") });
+      process.exitCode = r.exitCode;
       return;
     }
     case "suggest":

@@ -160,3 +160,30 @@ test("Jev overload (529) is retried once before giving up", async () => {
     stub.restore();
   }
 });
+
+/* ---- Aşama 2: Jev olmadan, seçilen yapay zekâ ile triyaj ---- */
+import { configFromEnv, triageChain } from "../src/server/config.ts";
+import { DEFAULT_MODELS } from "../src/schema/index.ts";
+
+test("an AI key alone is enough for model triage; no TRIAGE_MODEL or Jev needed", () => {
+  assert.equal(configFromEnv({ GEMINI_API_KEY: "g" }).llm?.model, DEFAULT_MODELS.gemini.models[1]);
+  assert.equal(configFromEnv({ ANTHROPIC_API_KEY: "a" }).llm?.model, DEFAULT_MODELS.anthropic.models[1]);
+  assert.equal(configFromEnv({ OPENAI_API_KEY: "o" }).llm?.model, DEFAULT_MODELS.openai.models[1]);
+  assert.equal(configFromEnv({ GEMINI_API_KEY: "g" }).jev, null);
+  assert.equal(triageChain(configFromEnv({ GEMINI_API_KEY: "g" })), `${DEFAULT_MODELS.gemini.models[1]} → rules`);
+});
+
+test("TRIAGE_MODEL still wins, 'off' turns model triage off, no key means rules", () => {
+  assert.equal(configFromEnv({ GEMINI_API_KEY: "g", ANTHROPIC_API_KEY: "a", TRIAGE_MODEL: "anthropic:claude-x" }).llm?.model, "anthropic:claude-x");
+  assert.equal(configFromEnv({ GEMINI_API_KEY: "g", TRIAGE_MODEL: "off" }).llm, null);
+  assert.equal(configFromEnv({}).llm, null);
+  assert.equal(triageChain(configFromEnv({})), "rules");
+});
+
+test("Jev is used only when its key is set, and then asked first", () => {
+  assert.equal(triageChain(configFromEnv({ TYPESAFE_API_KEY: "j", GEMINI_API_KEY: "g" })), `jev (jev-latest) → ${DEFAULT_MODELS.gemini.models[1]} → rules`);
+});
+
+test("Claude defaults are the current 5.5 family", () => {
+  assert.deepEqual([...DEFAULT_MODELS.anthropic.models], ["anthropic:claude-haiku-5-5", "anthropic:claude-sonnet-5-5", "anthropic:claude-opus-5-5"]);
+});

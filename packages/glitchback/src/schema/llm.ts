@@ -2,7 +2,7 @@
  * Provider-agnostic model access shared by the intake service and the fixer.
  *
  * A model is written as "provider:model", e.g.
- *   anthropic:claude-sonnet-5     openai:gpt-6-luna      gemini:gemini-3.5-flash
+ *   anthropic:claude-sonnet-5-5   openai:gpt-6-luna      gemini:gemini-3.5-flash
  *   openrouter:qwen/qwen3-coder   ollama:qwen2.5-coder
  * Each provider reads its own key (ANTHROPIC_API_KEY, OPENAI_API_KEY, ...), so
  * tiers can mix providers. A name without a known prefix ("gpt-4o-mini",
@@ -36,6 +36,40 @@ export const PROVIDERS = {
 } satisfies Record<string, ProviderPreset>;
 
 export type ProviderName = keyof typeof PROVIDERS | "custom";
+
+/**
+ * The providers people pick in `init`, with suggested models per difficulty tier
+ * [low, mid, high]. The mid model also triages reports when TRIAGE_MODEL is not set.
+ * One list for the CLI (setup, guide, doctor) and the server (triage).
+ */
+export const DEFAULT_MODELS = {
+  gemini: {
+    label: "Google Gemini",
+    keyEnv: "GEMINI_API_KEY",
+    models: ["gemini:gemini-3.5-flash-lite", "gemini:gemini-3.5-flash", "gemini:gemini-3.8-flash"],
+  },
+  anthropic: {
+    label: "Anthropic Claude",
+    keyEnv: "ANTHROPIC_API_KEY",
+    models: ["anthropic:claude-haiku-5-5", "anthropic:claude-sonnet-5-5", "anthropic:claude-opus-5-5"],
+  },
+  openai: {
+    label: "OpenAI GPT",
+    keyEnv: "OPENAI_API_KEY",
+    models: ["openai:gpt-6-luna", "openai:gpt-6-sol", "openai:gpt-6-astra"],
+  },
+} as const satisfies Record<string, { label: string; keyEnv: string; models: readonly [string, string, string] }>;
+
+export type DefaultProvider = keyof typeof DEFAULT_MODELS;
+
+/** The first provider whose key is set (Gemini, then Claude, then GPT), or null. */
+export function providerFromEnv(env: Env): DefaultProvider | null {
+  for (const p of Object.keys(DEFAULT_MODELS) as DefaultProvider[]) {
+    const keys: readonly string[] = PROVIDERS[p].keys;
+    if (keys.some((k) => env[k]?.trim())) return p;
+  }
+  return null;
+}
 
 export interface ModelRef {
   /** As written by the user, used in logs and comments. */

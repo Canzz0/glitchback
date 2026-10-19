@@ -50,7 +50,7 @@ function userPrompt(data: IssueData, files: SourceFile[], tree: string[]): strin
 
 /**
  * `model` comes from .glitchback.yml and may name any provider:
- * "anthropic:claude-sonnet-5", "openai:gpt-6-luna", "gemini:gemini-3.5-flash",
+ * "anthropic:claude-sonnet-5-5", "openai:gpt-6-luna", "gemini:gemini-3.5-flash",
  * "openrouter:qwen/qwen3-coder", "ollama:qwen2.5-coder", or a bare name for LLM_BASE_URL.
  */
 export async function proposeFix(model: string, data: IssueData, files: SourceFile[], tree: string[], cfg: RepoConfig): Promise<FixProposal> {

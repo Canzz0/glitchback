@@ -102,6 +102,8 @@ test("with a token, a report becomes a labelled GitHub issue", async () => {
     assert.ok(created.body.labels.includes("tier:mid"));
     assert.match(created.body.body, /\/products\/:id/, "route folded into a pattern");
     assert.ok(!created.body.body.includes("ali@example.com"), "contact email never reaches GitHub");
+    // Outside production the answer names the issue, so `glitchback doctor --test` can show it.
+    assert.equal((await res.json()).issue_url, "https://github.com/acme/shop/issues/7");
   } finally {
     globalThis.fetch = original;
   }
@@ -243,5 +245,20 @@ test("webhook signatures cover a timestamp, so captured requests cannot be repla
     assert.equal(sent!.headers["X-Glitchback-Signature"], expected);
   } finally {
     globalThis.fetch = original;
+  }
+});
+
+test("in production the answer never names the issue", async () => {
+  const m = mockGitHub();
+  const saved = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    const handle = createHandler(configFromEnv({ GLITCHBACK_GITHUB_TOKEN: "t", GLITCHBACK_GITHUB_REPO: "acme/shop" }));
+    const res = await handle(post(report()));
+    assert.equal(res.status, 202);
+    assert.equal((await res.json()).issue_url, undefined);
+  } finally {
+    process.env.NODE_ENV = saved;
+    m.restore();
   }
 });

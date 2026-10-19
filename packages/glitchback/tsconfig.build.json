@@ -4,8 +4,12 @@
     "noEmit": false,
     "declaration": true,
     "emitDeclarationOnly": true,
+    "removeComments": true,
     "outDir": "dist/types",
     "rootDir": "src"
   },
-  "include": ["src"]
+  // Only the public entry points (widget, next, server) and what their types need.
+  // The CLI and the fixer are programs, not APIs: no declarations for them.
+  "include": [],
+  "files": ["src/widget/index.ts", "src/next.ts", "src/server/index.ts"]
 }

@@ -1,4 +1,4 @@
-import { chatJson, resolveModel, type ChatRequest, type Env } from "../schema/index.ts";
+import { DEFAULT_MODELS, chatJson, providerFromEnv, resolveModel, type ChatRequest, type Env } from "../schema/index.ts";
 
 /**
  * Everything comes from environment variables and almost all of it is optional.
@@ -92,12 +92,17 @@ export function configFromEnv(env: Env): Config {
 }
 
 /**
- * Fallback triage model, used only when Jev is not configured or fails.
+ * The model that triages reports (after Jev, when TYPESAFE_API_KEY is set).
  * TRIAGE_MODEL is "provider:model" (anthropic:…, openai:…, gemini:…, openrouter:…, ollama:…)
- * or a bare name for the OpenAI-compatible endpoint in LLM_BASE_URL.
+ * or a bare name for the OpenAI-compatible endpoint in LLM_BASE_URL. Without it, the first
+ * AI key found (GEMINI, ANTHROPIC, OPENAI) picks that provider's default model, so one key
+ * is all the setup triage needs. TRIAGE_MODEL=off keeps triage on the rules.
  */
 function triageModel(env: Env): Config["llm"] {
-  const spec = env.TRIAGE_MODEL?.trim();
+  const explicit = env.TRIAGE_MODEL?.trim();
+  if (explicit && /^(off|none|false|0)$/i.test(explicit)) return null;
+  const fromKey = providerFromEnv(env);
+  const spec = explicit || (fromKey ? DEFAULT_MODELS[fromKey].models[1] : "");
   if (!spec && !env.LLM_API_KEY?.trim()) return null;
   const ref = resolveModel(spec || "openai/gpt-4o-mini", env);
   if (ref.provider === "custom" && !ref.apiKey && !env.LLM_BASE_URL?.trim()) return null;

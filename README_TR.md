@@ -2,7 +2,7 @@
 
 [English](./README.md) · **Türkçe** · npm: [`glitchback`](https://www.npmjs.com/package/glitchback)
 
-Sitenize bir **"Sorun bildir"** butonu ekler. Başarısız istekleri (400+) ve yakalanmamış JavaScript hatalarını da kimse butona basmadan **otomatik** rapor eder. Kullanıcının yazdığı şikâyeti sayfa adresi, konsol hataları, başarısız istekler ve son tıklamalarla birlikte toplar, **Jev** ile sınıflandırır (frontend / backend, ciddiyet, zorluk) ve GitHub issue'su açar. Frontend hataları için düzeltme önerisini issue'ya yazar; ekipten biri onaylarsa PR açar.
+Sitenize bir **"Sorun bildir"** butonu ekler. Başarısız istekleri (400+) ve yakalanmamış JavaScript hatalarını da kimse butona basmadan **otomatik** rapor eder. Kullanıcının yazdığı şikâyeti sayfa adresi, konsol hataları, başarısız istekler ve son tıklamalarla birlikte toplar, seçtiğiniz yapay zekâyla, **Gemini, Claude ya da GPT** ile sınıflandırır (frontend / backend, ciddiyet, zorluk) ve GitHub issue'su açar. Frontend hataları için düzeltme önerisini issue'ya yazar; ekipten biri onaylarsa PR açar.
 
 <p align="center"><img src="./docs/images/widget-overview.png" alt="Glitchback butonu: masaüstünde ve mobilde sorun bildirme formu" width="900"></p>
 
@@ -13,30 +13,44 @@ Ayrı veritabanı, panel ya da sunucu yok: raporlar uygulamanızın kendi içind
 ## Kurulum (Next.js)
 
 ```bash
-npx glitchback init
+npx glitchback
 ```
 
-Tek komut şunları yapar:
+İki seçenekli bir menü gelir:
+
+- **Otomatik** (önerilen): her şeyi kurar, yalnızca gerekenleri sorar. Her soru Enter ile atlanabilir.
+- **Manuel**: hiçbir dosyanıza dokunmaz. Terminalde kısa bir liste yazar ve tarayıcıda projenize özel adım adım bir rehber açar (yerel bir dosya, hiçbir yere gönderilmez); her dosya kopyalanmaya hazırdır.
+
+Menüyü atlamak için: `npx glitchback init --auto` ya da `npx glitchback init --manual`.
+
+Otomatik kurulum:
 
 - `glitchback` paketini kurar.
 - `app/api/glitchback/route.ts` ekler; raporlar uygulamanızın içinde karşılanır (ayrı sunucu, CORS, port yok).
 - Kök layout'a `<Glitchback />` butonunu ekler.
 - Sayfalarınızı tarayıp `.glitchback.yml` yazar: hangi sayfanın hangi dosyalardan oluştuğu, modelin dokunamayacağı dosyalar (`api/`, auth, veritabanı, `.env`...).
-- `.github/workflows/glitchback.yml` ekler.
-- Birkaç şey sorar ve `.env.local`'e yazar:
-  - **Jev anahtarı** (triyaj)
-  - **GitHub token'ı**: token sayfasını doğru izinle hazır açar, siz sadece repoyu seçersiniz
-  - **Kod modeli**: Gemini, Claude ya da OpenAI
+- Hangi **yapay zekâyı** kullanacağınızı sorar: **Gemini, Claude ya da GPT**, ya da şimdilik hiçbiri. Aynı yapay zekâ raporları sınıflar ve kod önerilerini yazar; anahtar sayfasını sizin için açar.
+- **GitHub token'ı** ister: token sayfasını doğru izinle hazır açar, siz sadece repoyu seçersiniz.
+- Cevapları `.env.local`'e yazar; yapay zekâ seçildiyse `.github/workflows/glitchback.yml` ekler.
 - Bilgisayarınızda `gh` ile giriş yapılmışsa GitHub etiketlerini ve Actions secret'ını da kendisi oluşturur.
+- Sonunda neyin çalıştığını, neyin bir adım uzakta olduğunu listeler. Atladıklarınızı eklemek için istediğiniz zaman tekrar çalıştırın; var olan dosyalara dokunulmaz.
 
-<p align="center"><img src="./docs/images/term-init.png" alt="npx glitchback init çıktısı" width="760"></p>
-<p align="center"><sub>Anahtar ve token'lar yazılırken ekranda yalnızca • görünür; değerler sadece <code>.env.local</code>'e yazılır. CLI terminalin dilini kullanır (Türkçe ya da İngilizce); <code>--lang tr</code> ile sabitlenebilir.</sub></p>
+Anahtar ve token'lar yazılırken ekranda yalnızca • görünür; değerler sadece `.env.local`'e yazılır. CLI terminalin dilini kullanır (Türkçe ya da İngilizce); `--lang tr` ile sabitlenebilir.
 
 Sonra `npm run dev` çalıştırın; sağ altta buton çıkar. Hiçbir anahtar girmeseniz bile çalışır: raporlar geliştirme sunucusunun terminaline yazılır.
 
 <p align="center"><img src="./docs/images/term-dev.png" alt="GitHub token'ı yokken raporlar geliştirme sunucusunun terminaline yazılır" width="760"></p>
 
 Canlıya alırken `.env.local`'deki değişkenleri hosting ayarlarına da ekleyin (Vercel'de repo adı otomatik bulunur).
+
+### Kurulumu kontrol etmek
+
+```bash
+npx glitchback doctor          # ne hazır, ne eksik ve her birini düzelten komut
+npx glitchback doctor --test   # ayrıca çalışan geliştirme sunucusuna örnek bir rapor gönderir
+```
+
+Dosyalara bakar, GitHub token'ını ve yapay zekâ anahtarını doğrular (model ücreti harcamadan), workflow'u ve Actions secret'ını kontrol eder (`gh` ile) ve çalışan geliştirme sunucusuna ayarlarınızı görüp görmediğini sorar. Bir şey bozuksa 1 koduyla çıkar; CI'da da kullanılabilir.
 
 ## Nasıl çalışır
 
@@ -45,7 +59,7 @@ Kullanıcı "Sorun bildir"e basar   ya da   bir istek 400+ döner / yakalanmamı
    │  mesaj + sayfa + konsol hataları + başarısız istekler + son tıklamalar (form içerikleri asla)
    ▼
 /api/glitchback  (uygulamanızın içinde)
-   │  kişisel veriyi maskele → triyaj: Jev → yedek model → kurallar → tekilleştir
+   │  kişisel veriyi maskele → triyaj: yapay zekânız (Gemini / Claude / GPT) → kurallar → tekilleştir
    ▼
 GitHub issue   etiketler: area:frontend|backend|both|unclear · severity:* · tier:low|mid|high
    ├── backend  → isteğe bağlı imzalı webhook / Slack
@@ -58,17 +72,36 @@ GitHub issue   etiketler: area:frontend|backend|both|unclear · severity:* · ti
 
 **Öneri otomatik gelir, koda dokunma kararı hep bir insanda kalır.**
 
+## Auto-fix kullanımı
+
+**İlk seferden önce** (repo başına bir kez; `npx glitchback doctor` üçünü de kontrol eder):
+
+1. **Dosyaları varsayılan branch'e (`main`) alın.** GitHub, issue ve etiket workflow'larını yalnızca varsayılan branch'ten çalıştırır; bu yüzden `.github/workflows/glitchback.yml` ve `.glitchback.yml` commit'lenip gönderilmeli ve oraya merge edilmeli. Sadece bilgisayarınızda ya da başka bir branch'te duran workflow hiç çalışmaz.
+2. **Actions'ın PR açmasına izin verin.** Repo → **Settings → Actions → General → Workflow permissions** → **"Allow GitHub Actions to create and approve pull requests"** kutusunu işaretleyin. Birçok repoda kapalıdır; kapalıyken autofix durur ve bunu issue'ya yorum olarak yazar.
+3. **Yapay zekâ anahtarını Actions secret'ı olarak ekleyin** (örn. `GEMINI_API_KEY`). `gh` ile giriş yaptıysanız `init` bunu sizin için yapar.
+
+**Her seferinde:**
+
+1. Frontend issue'larına kendiliğinden **"Glitchback önerisi"** yorumu gelir: muhtemel neden ve bir diff.
+2. Diff'i okuyun. Beğendiyseniz issue'ya **`autofix` etiketini** ekleyin (GitHub'da sağdaki **Labels**'ın yanındaki dişli, ya da `gh issue edit 12 --add-label autofix`). Yoruma "autofix" yazmak bir şey yapmaz.
+3. Glitchback tam olarak o diff'i `glitchback/issue-12` branch'ine uygular ve PR linkini yorum olarak yazar. PR'ı inceleyip kendiniz merge edersiniz; hiçbir şey otomatik merge edilmez. `autofix` etiketi iş bitince kalkar, tekrar ekleyebilirsiniz.
+
+**Hangi issue'lar öneri alır:** yalnızca `area:frontend` ve `area:both`. Backend issue'ları (örneğin API'nizin 500 dönmesi) almaz; sunucu kodu (`app/api/`, auth, veritabanı...) hiçbir zaman değiştirilmez. Sınıflama yanlışsa `area:backend` etiketini `area:frontend` ile değiştirin. Herhangi bir issue için öneri istemek isterseniz (örneğin workflow eklenmeden önce açılmış ya da yalnızca kurallarla sınıflanmış bir issue) **`glitchback:suggest`** etiketini ekleyin; frontend değilse nedenini yorum olarak yazar.
+
+Workflow'un kendi token'ıyla açılan PR'lar CI'ınızı tetiklemez (GitHub kuralı). Testlerin çalışması için Contents ve Pull requests yazma izinli bir token'ı `GLITCHBACK_TOKEN` secret'ı olarak ekleyin.
+
+Öneri yorumları `.glitchback.yml`'deki `language` diliyle yazılır (`tr` ya da `en`).
+
 ## Ayarlar (`.env.local`)
 
 Hepsi isteğe bağlı; `init` doldurur.
 
 | Değişken | Ne işe yarar |
 |---|---|
-| `TYPESAFE_API_KEY` | **Jev** ile triyaj. Yoksa kurallar kullanılır |
+| `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` | Seçtiğiniz yapay zekâ: triyaj ve kod önerileri. Tek anahtar yeterli. Yoksa triyaj kurallarla yapılır, öneri yazılmaz |
+| `TRIAGE_MODEL` | Triyaj modeli. Varsayılan: tanımlı yapay zekâ anahtarının orta modeli (örn. `gemini:gemini-3.5-flash`). `off` yazarsanız triyaj kurallarla yapılır |
 | `GLITCHBACK_GITHUB_TOKEN` | Raporları issue yapar. Sadece **Issues: write** izni. Yoksa raporlar terminale yazılır |
 | `GLITCHBACK_GITHUB_REPO` | `sahip/repo`. Vercel ve GitHub Actions'ta otomatik bulunur |
-| `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` | Kod önerileri ve Jev'e ulaşılamazsa yedek triyaj |
-| `TRIAGE_MODEL` | Yedek triyaj modeli, örn. `gemini:gemini-3.5-flash` |
 | `BACKEND_WEBHOOK_URL` / `BACKEND_WEBHOOK_SECRET` / `SLACK_WEBHOOK_URL` | Backend raporları için bildirim |
 | `GLITCHBACK_ALLOWED_ORIGINS` | Yalnızca ayrı sunucuda: rapor gönderebilecek siteler |
 | `GLITCHBACK_AUTO_REPORTS` | `off` yazarsanız otomatik raporlar sunucuda kapanır (varsayılan açık) |
@@ -78,6 +111,10 @@ Hepsi isteğe bağlı; `init` doldurur.
 
 `.glitchback.yml`'ı `init` yazar; `routes`, `allowed_paths`, `deny_paths` ve `models` alanlarını istediğiniz gibi düzenleyebilirsiniz.
 
+### İsteğe bağlı: Jev
+
+[Jev](https://docs.typesafe.ai) (TypeSafe), tipli ve kalibre kararlar için yapılmış bir model. `TYPESAFE_API_KEY` tanımlarsanız triyajı önce o yapar, seçtiğiniz yapay zekâ yedek olur. `init` bunu sormaz; isterseniz anahtarı elle ekleyin.
+
 ## Model sağlayıcıları
 
 Model her yerde `sağlayıcı:model` diye yazılır; her sağlayıcı yalnızca kendi anahtarını okur.
@@ -85,7 +122,7 @@ Model her yerde `sağlayıcı:model` diye yazılır; her sağlayıcı yalnızca 
 | Yazım | Anahtar |
 |---|---|
 | `gemini:gemini-3.5-flash` | `GEMINI_API_KEY` |
-| `anthropic:claude-sonnet-5` | `ANTHROPIC_API_KEY` |
+| `anthropic:claude-sonnet-5-5` | `ANTHROPIC_API_KEY` |
 | `openai:gpt-6-luna` | `OPENAI_API_KEY` |
 | `openrouter:qwen/qwen3-coder` | `OPENROUTER_API_KEY` |
 | `ollama:qwen2.5-coder` | yok (`OLLAMA_BASE_URL`) |
@@ -147,7 +184,7 @@ Dil ve tema sayfadan otomatik seçilir: İngilizce, koyu arka planlı bir sayfad
 
 Kullanıcı hiçbir şey yazmasa da widget şu durumlarda kendisi rapor gönderir:
 
-- Bir `fetch` / `XMLHttpRequest` isteği **400 ve üstü** döner. 401, 403, 404 ve 429 genelde beklenen durumlar olduğu için varsayılan olarak atlanır. Hiç cevap gelmeyen istekler (kullanıcı çevrimiçiyken) de rapor edilir. Uygulamanın kendi iptal ettiği istekler sayılmaz.
+- Bir `fetch` / `XMLHttpRequest` isteği **400 ve üstü** döner. 401, 403, 404 ve 429 genelde beklenen durumlar olduğu için varsayılan olarak atlanır. Bu yüzden sunucu hatalarını 404 ile döndürmeyin: veritabanı ya da kod hatası 500 dönmeli, yoksa hiç rapor edilmez. Hiç cevap gelmeyen istekler (kullanıcı çevrimiçiyken) de rapor edilir. Uygulamanın kendi iptal ettiği istekler sayılmaz.
 - **Yakalanmamış bir hata** ya da karşılanmamış bir promise reddi olur. `console.error` çağrıları tek başına rapor sayılmaz, sadece bağlama eklenir.
 
 Rapor, sayfa, konsol hataları, başarısız istekler ve son tıklamalarla birlikte gider. Triyajdan geçer ve `glitchback:auto` etiketiyle issue olur. Frontend çıkarsa öneri yine otomatik gelir; `autofix` etiketiyle PR açılır.
@@ -182,7 +219,7 @@ Widget, sitenizin yazı tipini kullanır. Renkler CSS değişkenleriyle değişi
 6. **Kişisel veri maskelenir:** e-posta, telefon, kart, TC kimlik, token'lar, URL'deki hassas parametreler, URL'nin `#` sonrası ve yoldaki token'lar (`/reset-password/<token>`). Widget form alanlarını okumaz.
 7. **Otomatik raporlarda kullanıcı metni yoktur.** Mesaj widget tarafından üretilir. URL'ler ve hata mesajları da aynı maskelemeden geçer.
 8. **Aynı origin:** tarayıcıdan gelen istekler yalnızca kendi sitenizden kabul edilir. Uç nokta herkese açıktır; tarayıcı dışından (curl gibi) gönderilen raporlar da gelebilir. Bunlara karşı IP başına sınır, tüm istemciler için saatlik GitHub ve model bütçesi ve 256 KB gövde sınırı vardır. Vercel'de istemci adresi platformun `x-real-ip` başlığından okunur; kendi sunucunuzda, önünde proxy yoksa `TRUSTED_PROXY_HOPS=0` yapın.
-9. **Prompt injection taraması raporun tüm alanlarına bakar** (mesaj, konsol hataları, URL'ler, tıklamalar). Jev ya da yedek model yoksa yalnızca kurallar tarar; bu durumda öneri kendiliğinden başlamaz, `glitchback:suggest` etiketi ya da `npx glitchback suggest` gerekir.
+9. **Prompt injection taraması raporun tüm alanlarına bakar** (mesaj, konsol hataları, URL'ler, tıklamalar). Yapay zekâ (ya da Jev) yoksa yalnızca kurallar tarar; bu durumda öneri kendiliğinden başlamaz, `glitchback:suggest` etiketi ya da `npx glitchback suggest` gerekir.
 10. **`autofix` yalnızca yazma yetkisi olanlarda çalışır.** Uygulanan diff, aynı issue için yazılmış ve yorumda görünen diff'le birebir aynı olmak zorundadır. Görünmez ya da yön değiştiren karakter içeren diff'ler önerilmez ve uygulanmaz.
 11. **Webhook imzası zaman damgalıdır:** `X-Glitchback-Timestamp` ve `HMAC(secret, timestamp + "." + gövde)`. 5 dakikadan eski istekleri reddedin (`examples/webhook-receiver`).
 12. **Workflow, onu yazan Glitchback sürümüne sabitlenir** (`npx -y glitchback@<sürüm>`); yükseltme bu dosyada gözden geçirilen bir değişikliktir.
@@ -191,7 +228,7 @@ Widget, sitenizin yazı tipini kullanır. Renkler CSS değişkenleriyle değişi
 
 ```bash
 npm install
-npm test            # 70 test, ağ gerektirmez
+npm test            # 90 test, ağ gerektirmez
 npm run typecheck
 npm run build       # packages/glitchback/dist
 node packages/glitchback/dist/cli.js init ../bir-next-projesi

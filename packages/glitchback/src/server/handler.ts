@@ -173,7 +173,7 @@ export function createHandler(cfg: Config): Handler {
         // A person's words are worth a comment; a repeat of the same automatic failure is not.
         if (!isAuto) await github.addDuplicateComment(existing.number, publicData);
         if (isBackend) await notifyBackend(cfg, "report.duplicate", existing.html_url, data);
-        return json({ ok: true, report_id: data.report_id, duplicate: true }, 202);
+        return json({ ok: true, report_id: data.report_id, duplicate: true, ...issueLink(existing.html_url) }, 202);
       }
 
       if (!isAuto && !githubWriteBudget.take("all")) {
@@ -192,12 +192,20 @@ export function createHandler(cfg: Config): Handler {
       });
       remember(fp, issue.html_url, issue.number);
       if (isBackend) await notifyBackend(cfg, "report.created", issue.html_url, data);
-      return json({ ok: true, report_id: data.report_id }, 202);
+      return json({ ok: true, report_id: data.report_id, ...issueLink(issue.html_url) }, 202);
     } catch (err) {
       console.error("[glitchback] failed to file report:", err);
       return json({ error: "upstream_failed" }, 502);
     }
   };
+}
+
+/**
+ * In development the answer names the issue, so `glitchback doctor --test` can link it.
+ * In production a reporter never learns where issues live (the repo may be private).
+ */
+function issueLink(url: string): { issue_url?: string } {
+  return process.env.NODE_ENV === "production" ? {} : { issue_url: url };
 }
 
 /** Until a GitHub token is set, reports show up where the developer already looks. */

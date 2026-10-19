@@ -1,0 +1,1115 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Glitchback widget testleri</title>
+<!--
+  Glitchback widget test sayfası.
+
+  Açmak: bu dosyaya çift tıklayın (file://) ya da repo kökünde `npx serve .` deyip
+  /packages/glitchback/test/widget.test.html adresine gidin. Sunucu gerekmez: rapor
+  uç noktası ve /mock/... istekleri sayfanın içinde sahtelenir.
+
+  Sayfa derlenmiş paketi yükler (../dist/glitchback.global.js). src/ altında bir şey
+  değiştirdiyseniz önce `npm run build`.
+
+  YENİ ÖZELLİK EKLERKEN: önce aşağıdaki TESTS dizisine testini yazın, kırmızı görün,
+  sonra özelliği ekleyip yeşile çevirin. Her test kendi temiz iframe'inde, kendi
+  init() ayarlarıyla çalışır; testler birbirini etkilemez.
+
+  Sahte istekler (fetch ve XMLHttpRequest):
+    /mock/500/herhangi-bir-yol    → 500 döner (100–599 arası her kod)
+    /mock/network/yol             → ağ hatası (cevap yok, status 0)
+    /mock/200/yol?ms=800          → 800 ms bekleyip 200 döner (iptal testleri için)
+-->
+<style>
+  :root {
+    --bg: #f6f6f3; --card: #ffffff; --fg: #1a1c20; --muted: #60656f; --line: #e3e3de;
+    --accent: #2557c4; --pass: #17804a; --pass-bg: #e5f4eb; --fail: #b42318; --fail-bg: #fbe9e7;
+    --skip: #8a6a00; --skip-bg: #fbf3d9; --run: #2557c4; --run-bg: #e8eefb; --code-bg: #f1f1ec;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg); background: var(--bg); }
+  body.frame { background: #ffffff; padding: 16px; }
+  body.frame.dark { background: #14161a; color: #e9ebef; }
+  code, pre, .mono { font-family: var(--mono); font-size: 12.5px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  h3 { font-size: 12px; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 24px 16px 120px; }
+  header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 20px; }
+  header.top p { margin: 0; color: var(--muted); }
+  .banner { padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; background: var(--fail-bg); color: var(--fail); font-weight: 500; }
+  .grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr) 440px; } .side { position: sticky; top: 16px; align-self: start; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+  button.b { font: inherit; font-size: 13px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; }
+  button.b:hover { border-color: #c8c8c0; }
+  button.b.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.b:disabled { opacity: .55; cursor: progress; }
+  button.sm { height: 26px; padding: 0 8px; font-size: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--code-bg); color: var(--muted); font-weight: 500; }
+  .chip.pass { background: var(--pass-bg); color: var(--pass); } .chip.fail { background: var(--fail-bg); color: var(--fail); }
+  .chip.skip { background: var(--skip-bg); color: var(--skip); }
+  label.inline { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  tr:first-child td { border-top: 0; }
+  td.st { width: 74px; } td.dur { width: 56px; color: var(--muted); text-align: right; font-size: 12px; white-space: nowrap; } td.act { width: 92px; text-align: right; white-space: nowrap; }
+  .name { font-weight: 500; } .tid { color: var(--muted); font-size: 11.5px; }
+  .msg { font-family: var(--mono); font-size: 12px; color: var(--fail); margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+  .msg.skip { color: var(--skip); }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px; background: var(--code-bg); color: var(--muted); }
+  .badge.pass { background: var(--pass-bg); color: var(--pass); } .badge.fail { background: var(--fail-bg); color: var(--fail); }
+  .badge.skip { background: var(--skip-bg); color: var(--skip); } .badge.run { background: var(--run-bg); color: var(--run); }
+  tr.hidden { display: none; }
+  .preview { width: 100%; height: 420px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+  form.cfg { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  form.cfg label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+  form.cfg select, form.cfg input, .field input, .field select { font: inherit; font-size: 13px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); min-width: 0; }
+  .triggers { display: flex; flex-wrap: wrap; gap: 6px; }
+  .field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .log { display: grid; gap: 8px; margin-top: 10px; max-height: 640px; overflow: auto; }
+  .entry { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .entry .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .entry .summary { margin-top: 4px; word-break: break-word; }
+  .entry pre { margin: 8px 0 0; padding: 10px; background: var(--code-bg); border-radius: 8px; overflow: auto; max-height: 360px; font-size: 11.5px; }
+  .entry time { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .frame-result { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; }
+</style>
+
+<!-- 1) Önyükleme: sahte uç noktalar widget'tan ÖNCE kurulmalı (widget fetch/XHR'ı yüklenince sarar). -->
+<script>
+(function () {
+  "use strict";
+  const params = new URLSearchParams(location.search);
+  const H = (window.__gb = {
+    params,
+    runId: params.get("run"),
+    reports: [],          // rapor uç noktasına giden her istek: { payload, keepalive, status, at }
+    intakeStatus: 200,    // sahte rapor sunucusunun cevabı: 200 | 403 | 429 | 500 | "network"
+    liveEndpoint: params.get("endpoint") || null, // ?endpoint=http://localhost:8787 → gerçek sunucuya da gönder
+    listeners: [],
+  });
+  H.mode = H.runId ? "frame" : "playground";
+
+  const abs = (u) => { try { return new URL(String(u), location.href).href; } catch { return String(u); } };
+  H.abs = abs;
+  H.endpoint = abs(H.liveEndpoint && H.mode === "playground" ? H.liveEndpoint : "/__glitchback");
+
+  // Otomatik raporların oturum kaydı (aynı hata oturumda bir kez): her açılışta temiz başla.
+  if (!params.has("keepSession")) { try { sessionStorage.removeItem("glitchback:auto-sent"); } catch {} }
+
+  const notify = (entry) => H.listeners.forEach((fn) => { try { fn(entry); } catch (e) { setTimeout(() => { throw e; }); } });
+  const abortError = () => new DOMException("The user aborted a request.", "AbortError");
+  const sleep = (ms, signal) => new Promise((resolve, reject) => {
+    if (signal && signal.aborted) return reject(abortError());
+    const t = setTimeout(resolve, ms);
+    if (signal) signal.addEventListener("abort", () => { clearTimeout(t); reject(abortError()); });
+  });
+  const mockOf = (url) => {
+    let u;
+    try { u = new URL(abs(url)); } catch { return null; }
+    if (!u.pathname.startsWith("/mock/")) return null;
+    return { kind: u.pathname.split("/")[2] || "200", ms: Number(u.searchParams.get("ms") || 5) };
+  };
+
+  const realFetch = window.fetch.bind(window);
+  H.realFetch = realFetch;
+
+  async function intake(input, init) {
+    let payload = null;
+    try { payload = JSON.parse(init.body); } catch {}
+    const entry = { payload, keepalive: !!init.keepalive, status: null, at: new Date() };
+    H.reports.push(entry);
+    if (H.liveEndpoint && H.mode === "playground") {
+      try {
+        const res = await realFetch(input, init);
+        entry.status = res.status;
+        notify(entry);
+        return res;
+      } catch (e) { entry.status = "network"; notify(entry); throw e; }
+    }
+    await sleep(5);
+    const s = H.intakeStatus;
+    entry.status = s;
+    notify(entry);
+    if (s === "network") throw new TypeError("Failed to fetch");
+    return new Response(JSON.stringify(s < 300 ? { ok: true } : { error: "mock" }), { status: s, headers: { "Content-Type": "application/json" } });
+  }
+
+  window.fetch = async function (input, init) {
+    init = init || {};
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (abs(url) === H.endpoint) return intake(input, init);
+    const m = mockOf(url);
+    if (!m) return realFetch(input, init);
+    await sleep(m.ms, init.signal || (input instanceof Request ? input.signal : undefined));
+    if (m.kind === "network") throw new TypeError("Failed to fetch");
+    const status = /^\d{3}$/.test(m.kind) ? Number(m.kind) : 200;
+    return new Response(JSON.stringify({ mock: true, status }), { status, headers: { "Content-Type": "application/json" } });
+  };
+
+  const P = XMLHttpRequest.prototype;
+  const realOpen = P.open, realSend = P.send, realAbort = P.abort;
+  const setState = (xhr, status) => {
+    Object.defineProperty(xhr, "status", { configurable: true, get: () => status });
+    Object.defineProperty(xhr, "readyState", { configurable: true, get: () => 4 });
+  };
+  P.open = function (method, url) {
+    this.__mock = mockOf(url);
+    if (this.__mock) return;
+    return realOpen.apply(this, arguments);
+  };
+  P.send = function (body) {
+    const m = this.__mock;
+    if (!m) return realSend.call(this, body);
+    const fire = (type) => this.dispatchEvent(new ProgressEvent(type));
+    m.timer = setTimeout(() => {
+      if (m.kind === "network") { setState(this, 0); fire("readystatechange"); fire("error"); fire("loadend"); return; }
+      setState(this, /^\d{3}$/.test(m.kind) ? Number(m.kind) : 200);
+      fire("readystatechange"); fire("load"); fire("loadend");
+    }, m.ms);
+  };
+  P.abort = function () {
+    const m = this.__mock;
+    if (!m) return realAbort.call(this);
+    clearTimeout(m.timer);
+    setState(this, 0);
+    this.dispatchEvent(new ProgressEvent("abort"));
+    this.dispatchEvent(new ProgressEvent("loadend"));
+  };
+})();
+</script>
+
+<!-- 2) Test edilen şey: derlenmiş widget. -->
+<script src="../dist/glitchback.global.js"></script>
+</head>
+<body>
+<script>
+"use strict";
+/* ==========================================================================
+   TESTLER
+   Her test: { id, group, name, cfg?, run(h) }
+     cfg.options  → Glitchback.init()'e giden ayarlar (varsayılan: sahte uç nokta,
+                    autoReport { delayMs: 30, maxPerPage: 100 })
+     cfg.htmlLang → init'ten önce <html lang>
+     cfg.dark     → koyu sayfa arka planı
+     cfg.intake   → sahte rapor sunucusunun cevabı (200 | 403 | 429 | 500 | "network")
+     cfg.noInit   → init() çağrılmaz
+     cfg.before() → init'ten hemen önce çalışır
+   Yardımcılar (h): ok, eq, includes, skip, wait, until, $, $$, fab, panel,
+     auto(), user(), autoCount(n), noAuto(), userReport(), fetch, xhr,
+     throwLater, rejectLater, click, labels
+   ========================================================================== */
+const TESTS = [
+  /* ---------------- Kurulum ---------------- */
+  { id: "init-global", group: "Kurulum", name: "Global Glitchback API'si ve shadow root",
+    async run(h) {
+      h.eq(typeof Glitchback.init, "function", "Glitchback.init");
+      h.eq(typeof Glitchback.open, "function", "Glitchback.open");
+      h.ok(Glitchback.labelsTR && Glitchback.labelsEN, "labelsTR / labelsEN dışa aktarılmalı");
+      h.eq(document.querySelectorAll("glitchback-root").length, 1, "glitchback-root sayısı");
+      h.ok(h.root, "shadow root açık (mode: open) olmalı");
+      h.ok(h.fab(), "buton görünmeli");
+    } },
+  { id: "init-twice", group: "Kurulum", name: "init() ikinci kez çağrılınca aynı örnek döner",
+    async run(h) {
+      const again = Glitchback.init({ endpoint: "/__glitchback" });
+      h.eq(again, h.api, "aynı nesne");
+      h.eq(document.querySelectorAll("glitchback-root").length, 1, "tek root");
+    } },
+  { id: "open-before-init", group: "Kurulum", name: "init() olmadan open() açıklayıcı hata fırlatır", cfg: { noInit: true },
+    async run(h) {
+      let error = null;
+      try { Glitchback.open(); } catch (e) { error = e; }
+      h.ok(error, "hata fırlatmalı");
+      h.includes(error.message, "init", "hata mesajı");
+    } },
+  { id: "button-false", group: "Kurulum", name: "button: false → buton yok, open() formu açar", cfg: { options: { button: false } },
+    async run(h) {
+      h.ok(!h.fab(), "buton olmamalı");
+      Glitchback.open();
+      h.ok(h.panel(), "form açılmalı");
+    } },
+
+  /* ---------------- Dil, tema, konum ---------------- */
+  { id: "locale-auto-tr", group: "Dil, tema, konum", name: "<html lang=\"tr\"> → Türkçe", cfg: { htmlLang: "tr" },
+    async run(h) {
+      h.eq(h.fab().textContent.trim(), "Sorun bildir", "buton metni");
+      h.eq(h.host().getAttribute("lang"), "tr", "host lang");
+    } },
+  { id: "locale-auto-en", group: "Dil, tema, konum", name: "<html lang=\"en\"> → İngilizce", cfg: { htmlLang: "en" },
+    async run(h) { h.eq(h.fab().textContent.trim(), "Report a problem", "buton metni"); } },
+  { id: "locale-forced", group: "Dil, tema, konum", name: "locale: \"en\" sayfa dilini ezer", cfg: { htmlLang: "tr", options: { locale: "en" } },
+    async run(h) { h.eq(h.fab().textContent.trim(), "Report a problem", "buton metni"); } },
+  { id: "labels-override", group: "Dil, tema, konum", name: "labels yalnızca verilen metinleri değiştirir", cfg: { htmlLang: "tr", options: { labels: { button: "Yardım" } } },
+    async run(h) {
+      h.eq(h.fab().textContent.trim(), "Yardım", "buton metni");
+      Glitchback.open();
+      h.eq(h.$("h2").textContent, "Sorun bildir", "başlık Türkçe kalmalı");
+    } },
+  { id: "theme-auto-light", group: "Dil, tema, konum", name: "Açık sayfa → açık tema",
+    async run(h) { h.eq(h.host().dataset.theme, "light", "data-theme"); } },
+  { id: "theme-auto-dark", group: "Dil, tema, konum", name: "Koyu sayfa → koyu tema", cfg: { dark: true },
+    async run(h) { h.eq(h.host().dataset.theme, "dark", "data-theme"); } },
+  { id: "theme-forced-dark", group: "Dil, tema, konum", name: "theme: \"dark\" açık sayfada da koyu", cfg: { options: { theme: "dark" } },
+    async run(h) { h.eq(h.host().dataset.theme, "dark", "data-theme"); } },
+  { id: "theme-forced-light", group: "Dil, tema, konum", name: "theme: \"light\" koyu sayfada da açık", cfg: { dark: true, options: { theme: "light" } },
+    async run(h) { h.eq(h.host().dataset.theme, "light", "data-theme"); } },
+  { id: "theme-follows-page", group: "Dil, tema, konum", name: "Sayfa sonradan koyulaşırsa form açılırken tema güncellenir",
+    async run(h) {
+      h.eq(h.host().dataset.theme, "light", "başta");
+      document.body.style.background = "#101114";
+      Glitchback.open();
+      h.eq(h.host().dataset.theme, "dark", "açıldıktan sonra");
+    } },
+  { id: "position-left", group: "Dil, tema, konum", name: "position: \"left\" buton ve formu sola alır", cfg: { options: { position: "left" } },
+    async run(h) {
+      h.ok(h.fab().classList.contains("left"), "buton .left");
+      Glitchback.open();
+      h.ok(h.panel().classList.contains("left"), "form .left");
+    } },
+
+  /* ---------------- Form ---------------- */
+  { id: "form-open", group: "Form", name: "Butona basınca erişilebilir dialog açılır, metin alanı odaklanır",
+    async run(h) {
+      h.fab().click();
+      const p = h.panel();
+      h.ok(p, "form açılmalı");
+      h.eq(p.getAttribute("role"), "dialog", "role");
+      h.eq(p.getAttribute("aria-modal"), "true", "aria-modal");
+      h.eq(h.fab().getAttribute("aria-expanded"), "true", "buton aria-expanded");
+      h.eq(h.root.activeElement, h.$("#pb-msg"), "odak metin alanında olmalı");
+    } },
+  { id: "form-too-short", group: "Form", name: "3 karakterden kısa mesaj gönderilmez, hata gösterilir",
+    async run(h) {
+      Glitchback.open();
+      h.$("#pb-msg").value = "ab";
+      h.$("#pb-send").click();
+      const err = h.$("#pb-error");
+      h.ok(!err.hidden, "hata görünmeli");
+      h.eq(err.textContent, h.labels.tooShort, "hata metni");
+      h.eq(h.$("#pb-msg").getAttribute("aria-invalid"), "true", "aria-invalid");
+      await h.wait(150);
+      h.eq(h.user().length, 0, "rapor gönderilmemeli");
+      h.$("#pb-msg").dispatchEvent(new Event("input"));
+      h.ok(err.hidden, "yazmaya başlayınca hata kaybolmalı");
+    } },
+  { id: "form-send", group: "Form", name: "Gönderilen rapor şemaya uyar, teşekkür ekranı çıkar",
+    async run(h) {
+      const p = await h.userReport("   Ödeme butonu çalışmıyor   ", { keepOpen: true });
+      h.eq(p.schema_version, "1.0", "schema_version");
+      h.eq(p.source, "user_report", "source");
+      h.eq(p.user_message, "Ödeme butonu çalışmıyor", "mesaj kırpılmalı");
+      h.eq(p.contact, undefined, "askContact kapalıyken contact yok");
+      h.eq(p.trigger, undefined, "trigger yok");
+      for (const k of ["url", "route", "user_agent", "viewport", "console_errors", "failed_requests", "breadcrumbs"]) h.ok(k in p.context, "context." + k + " olmalı");
+      h.eq(h.$(".done h2").textContent, h.labels.sent, "teşekkür başlığı");
+    } },
+  { id: "form-contact", group: "Form", name: "askContact: e-posta alanı ve payload.contact", cfg: { options: { askContact: true } },
+    async run(h) {
+      Glitchback.open();
+      h.ok(h.$("#pb-contact"), "e-posta alanı olmalı");
+      h.eq(h.$("#pb-contact").type, "email", "input type");
+      h.$("#pb-contact").value = "  ali@ornek.com ";
+      const p = await h.userReport("Sepet boş görünüyor");
+      h.eq(p.contact, "ali@ornek.com", "contact");
+    } },
+  { id: "form-contact-empty", group: "Form", name: "askContact: boş e-posta gönderilmez", cfg: { options: { askContact: true } },
+    async run(h) { const p = await h.userReport("Sepet boş görünüyor"); h.eq(p.contact, undefined, "contact"); } },
+  { id: "form-ctrl-enter", group: "Form", name: "Ctrl/Cmd + Enter gönderir",
+    async run(h) {
+      Glitchback.open();
+      const ta = h.$("#pb-msg");
+      ta.value = "Kısayolla gönderim";
+      ta.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+      await h.until(() => h.user().length === 1, "rapor gönderilmeli");
+    } },
+  { id: "form-escape", group: "Form", name: "Escape formu kapatır",
+    async run(h) {
+      h.fab().click();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      h.ok(!h.panel(), "form kapanmalı");
+      h.eq(h.fab().getAttribute("aria-expanded"), "false", "aria-expanded");
+    } },
+  { id: "form-backdrop", group: "Form", name: "Dışarı tıklayınca ve Vazgeç'e basınca kapanır",
+    async run(h) {
+      Glitchback.open();
+      h.$(".backdrop").click();
+      h.ok(!h.panel(), "arka plana tıklayınca kapanmalı");
+      Glitchback.open();
+      h.$("footer .secondary").click();
+      h.ok(!h.panel(), "Vazgeç ile kapanmalı");
+    } },
+  { id: "form-open-twice", group: "Form", name: "open() iki kez çağrılınca ikinci form açılmaz",
+    async run(h) { Glitchback.open(); Glitchback.open(); h.eq(h.$$(".panel").length, 1, "form sayısı"); } },
+  { id: "form-intake-429", group: "Form", name: "Sunucu 429 → \"çok fazla bildirim\" mesajı, tekrar denenebilir", cfg: { intake: 429 },
+    async run(h) {
+      await h.sendExpectingError("Sayfa açılmıyor");
+      h.eq(h.$("#pb-error").textContent, h.labels.rateLimited, "hata metni");
+      h.ok(!h.$("#pb-send").disabled, "Gönder tekrar aktif olmalı");
+      h.eq(h.$("#pb-send").textContent, h.labels.send, "buton metni geri dönmeli");
+    } },
+  { id: "form-intake-500", group: "Form", name: "Sunucu 500 → \"gönderilemedi\" mesajı", cfg: { intake: 500 },
+    async run(h) { await h.sendExpectingError("Sayfa açılmıyor"); h.eq(h.$("#pb-error").textContent, h.labels.failed, "hata metni"); } },
+  { id: "form-intake-network", group: "Form", name: "Ağ hatası → \"gönderilemedi\" mesajı", cfg: { intake: "network" },
+    async run(h) { await h.sendExpectingError("Sayfa açılmıyor"); h.eq(h.$("#pb-error").textContent, h.labels.failed, "hata metni"); } },
+  { id: "form-attached", group: "Form", name: "\"Bildirime eklenecekler\" listesi hata ve istek sayısını gösterir", cfg: { options: { autoReport: false } },
+    async run(h) {
+      console.error("Bir şey bozuldu");
+      await h.fetch("/mock/500/sepet");
+      h.click(h.button("Sepete ekle"));
+      Glitchback.open();
+      const items = h.$$(".attached li").map((li) => li.textContent);
+      h.ok(items.includes(h.labels.attachedErrors(1)), "konsol hatası satırı: " + items.join(" | "));
+      h.ok(items.includes(h.labels.attachedRequests(1)), "başarısız istek satırı");
+      h.ok(items.includes(h.labels.attachedActions(1)), "tıklama satırı");
+      h.eq(h.$$(".attached li.hot").length, 2, "kırmızı işaretli satır");
+    } },
+  { id: "form-project-key", group: "Form", name: "projectKey hem elle hem otomatik rapora eklenir", cfg: { options: { projectKey: "pk_test" } },
+    async run(h) {
+      await h.fetch("/mock/500/odeme", { method: "POST" });
+      const [a] = await h.autoCount(1);
+      h.eq(a.project_key, "pk_test", "otomatik rapor project_key");
+      const p = await h.userReport("Ödeme hata veriyor");
+      h.eq(p.project_key, "pk_test", "elle rapor project_key");
+    } },
+
+  /* ---------------- Bağlam ---------------- */
+  { id: "ctx-console-error", group: "Bağlam", name: "console.error bağlama eklenir ama tek başına rapor sayılmaz",
+    async run(h) {
+      console.error("Ödeme hatası", { code: 42 });
+      await h.noAuto();
+      const p = await h.userReport("Ödeme yapılamıyor");
+      h.ok(p.context.console_errors.some((e) => e === 'Ödeme hatası {"code":42}'), "console_errors: " + JSON.stringify(p.context.console_errors));
+    } },
+  { id: "ctx-console-error-object", group: "Bağlam", name: "console.error(Error) adı, mesajı ve yığını kaydeder",
+    async run(h) {
+      console.error(new TypeError("x tanımsız"));
+      const p = await h.userReport("Sayfa bozuk");
+      h.ok(p.context.console_errors[0].startsWith("TypeError: x tanımsız"), "kayıt: " + p.context.console_errors[0]);
+    } },
+  { id: "ctx-failed-fetch", group: "Bağlam", name: "Başarısız fetch: yöntem, adres, durum ve süre kaydedilir",
+    async run(h) {
+      await h.fetch("/mock/500/sepet", { method: "post" });
+      const r = (await h.userReport("Sepet hata")).context.failed_requests[0];
+      h.ok(r, "kayıt olmalı");
+      h.eq(r.method, "POST", "yöntem büyük harf");
+      h.eq(r.status, 500, "durum");
+      h.ok(r.url.endsWith("/mock/500/sepet"), "adres: " + r.url);
+      h.eq(typeof r.duration_ms, "number", "duration_ms");
+    } },
+  { id: "ctx-fetch-request", group: "Bağlam", name: "fetch(new Request(...)) yöntemi Request'ten okunur",
+    async run(h) {
+      await h.fetch(new Request(H().abs("/mock/500/kayit"), { method: "DELETE" }));
+      const r = (await h.userReport("Silme hata")).context.failed_requests[0];
+      h.eq(r && r.method, "DELETE", "yöntem");
+    } },
+  { id: "ctx-failed-xhr", group: "Bağlam", name: "Başarısız XMLHttpRequest kaydedilir (axios vb.)",
+    async run(h) {
+      await h.xhr("put", "/mock/502/profil");
+      const r = (await h.userReport("Profil kaydedilmiyor")).context.failed_requests[0];
+      h.ok(r, "kayıt olmalı");
+      h.eq(r.method, "PUT", "yöntem");
+      h.eq(r.status, 502, "durum");
+    } },
+  { id: "ctx-ok-ignored", group: "Bağlam", name: "Başarılı istekler kaydedilmez",
+    async run(h) {
+      await h.fetch("/mock/200/liste");
+      await h.xhr("GET", "/mock/204/liste");
+      h.eq((await h.userReport("Her şey yolunda mı")).context.failed_requests.length, 0, "failed_requests");
+    } },
+  { id: "ctx-endpoint-ignored", group: "Bağlam", name: "Widget'ın kendi rapor istekleri kaydedilmez", cfg: { intake: 500 },
+    async run(h) {
+      await h.sendExpectingError("İlk deneme");
+      h.$("footer .secondary").click();
+      H().intakeStatus = 200;
+      const p = await h.userReport("İkinci deneme");
+      h.eq(p.context.failed_requests.length, 0, "failed_requests");
+    } },
+  { id: "ctx-ignore-urls", group: "Bağlam", name: "ignoreUrls (metin ve RegExp) kaydedilmez ve rapor edilmez", cfg: { options: { ignoreUrls: ["/mock/500/analitik", /izleme/] } },
+    async run(h) {
+      await h.fetch("/mock/500/analitik");
+      await h.fetch("/mock/503/izleme-pikseli");
+      await h.fetch("/mock/500/odeme");
+      await h.autoCount(1);
+      const reqs = (await h.userReport("Ödeme hata")).context.failed_requests;
+      h.eq(reqs.length, 1, "failed_requests sayısı");
+      h.ok(reqs[0].url.endsWith("/odeme"), "kalan kayıt ödeme olmalı");
+    } },
+  { id: "ctx-breadcrumb-click", group: "Bağlam", name: "Tıklama izi: etiket, id, data-testid ve metin",
+    async run(h) {
+      const b = h.button("Ödemeyi tamamla", { id: "odeme-btn", "data-testid": "pay" });
+      const span = document.createElement("span"); span.textContent = " (₺120)"; b.appendChild(span);
+      h.click(span); // iç öğeye tıklama en yakın butona çevrilmeli
+      const c = (await h.userReport("Ödeme")).context.breadcrumbs.filter((x) => x.type === "click");
+      h.eq(c.length, 1, "tıklama sayısı");
+      h.eq(c[0].message, 'button#odeme-btn [data-testid=pay] "Ödemeyi tamamla (₺120)"', "iz metni");
+      h.ok(!isNaN(Date.parse(c[0].at)), "at ISO tarih olmalı");
+    } },
+  { id: "ctx-no-input-values", group: "Bağlam", name: "Form alanlarının değeri hiçbir yere eklenmez",
+    async run(h) {
+      const input = document.createElement("input");
+      input.id = "kart"; input.value = "4111 1111 1111 1111";
+      document.getElementById("stage").appendChild(input);
+      h.click(input);
+      const p = await h.userReport("Kart kabul edilmiyor");
+      const crumbs = p.context.breadcrumbs.filter((x) => x.type === "click");
+      h.eq(crumbs[0] && crumbs[0].message, "input#kart", "iz metni");
+      h.ok(!JSON.stringify(p).includes("4111"), "kart numarası payload'da olmamalı");
+    } },
+  { id: "ctx-widget-clicks-ignored", group: "Bağlam", name: "Widget'ın kendi butonlarına tıklamalar ize girmez",
+    async run(h) {
+      h.fab().click();
+      const ta = h.$("#pb-msg"); ta.value = "Widget tıklamaları"; h.$("#pb-send").click();
+      await h.until(() => h.user().length === 1, "rapor");
+      h.eq(h.user()[0].context.breadcrumbs.length, 0, "breadcrumbs");
+    } },
+  { id: "ctx-snapshot-at-open", group: "Bağlam", name: "Bağlam form açıldığı an alınır (form yazılırken olanlar girmez)",
+    async run(h) {
+      Glitchback.open();
+      console.error("form açıkken oluşan hata");
+      const ta = h.$("#pb-msg"); ta.value = "Anlık görüntü"; h.$("#pb-send").click();
+      await h.until(() => h.user().length === 1, "rapor");
+      h.eq(h.user()[0].context.console_errors.length, 0, "console_errors");
+    } },
+  { id: "ctx-navigation", group: "Bağlam", name: "SPA geçişleri (pushState, replaceState) ize girer",
+    async run(h) {
+      try { history.pushState({}, "", location.pathname + location.search + "&adim=odeme"); }
+      catch (e) { h.skip("pushState bu ortamda engelli (file://). `npx serve .` ile açın."); }
+      history.replaceState({}, "", location.pathname + location.search.replace("adim=odeme", "adim=onay"));
+      const nav = (await h.userReport("Geçiş")).context.breadcrumbs.filter((x) => x.type === "navigation");
+      h.eq(nav.length, 2, "geçiş sayısı");
+      h.includes(nav[0].message, "adim=odeme", "ilk geçiş");
+      h.includes(nav[1].message, "adim=onay", "ikinci geçiş");
+    } },
+  { id: "ctx-hash-stripped", group: "Bağlam", name: "URL'nin # sonrası (OAuth token vb.) gönderilmez",
+    async run(h) {
+      location.hash = "access_token=gizli123";
+      const p = await h.userReport("Giriş sonrası boş sayfa");
+      h.ok(!p.context.url.includes("#") && !JSON.stringify(p).includes("gizli123"), "url: " + p.context.url);
+    } },
+  { id: "ctx-meta", group: "Bağlam", name: "appVersion, getRoute, viewport ve user agent",
+    cfg: { options: { appVersion: "v-test-1", getRoute: () => "/urunler/:id" } },
+    async run(h) {
+      const c = (await h.userReport("Ürün sayfası")).context;
+      h.eq(c.app_version, "v-test-1", "app_version");
+      h.eq(c.route, "/urunler/:id", "route");
+      h.ok(c.viewport.width > 0 && c.viewport.height > 0, "viewport");
+      h.eq(c.user_agent, navigator.userAgent, "user_agent");
+    } },
+  { id: "ctx-route-default", group: "Bağlam", name: "getRoute yoksa route = location.pathname",
+    async run(h) { h.eq((await h.userReport("Rota")).context.route, location.pathname, "route"); } },
+  { id: "ctx-limits", group: "Bağlam", name: "Listeler sınırlı: son 20 konsol hatası, son 20 istek",
+    cfg: { options: { autoReport: false } },
+    async run(h) {
+      for (let i = 1; i <= 25; i++) console.error("hata " + i);
+      for (let i = 1; i <= 23; i++) await h.fetch("/mock/500/istek-" + i);
+      const c = (await h.userReport("Çok hata")).context;
+      h.eq(c.console_errors.length, 20, "console_errors");
+      h.eq(c.console_errors[19], "hata 25", "en yenisi sonda");
+      h.eq(c.console_errors[0], "hata 6", "en eskiler atılmalı");
+      h.eq(c.failed_requests.length, 20, "failed_requests");
+    } },
+
+  /* ---------------- Otomatik raporlar ---------------- */
+  { id: "auto-fetch-500", group: "Otomatik raporlar", name: "fetch 500 → otomatik rapor (şema, mesaj, keepalive)",
+    async run(h) {
+      await h.fetch("/mock/500/odeme", { method: "POST" });
+      const [a] = await h.autoCount(1);
+      h.eq(a.source, "auto", "source");
+      h.eq(a.trigger.kind, "request", "trigger.kind");
+      h.eq(a.trigger.method, "POST", "trigger.method");
+      h.eq(a.trigger.status, 500, "trigger.status");
+      h.eq(a.trigger.url, H().abs("/mock/500/odeme"), "trigger.url tam adres olmalı");
+      h.eq(a.user_message, "Automatic report: POST /mock/500/odeme returned 500", "user_message");
+      h.eq(a.contact, undefined, "contact yok");
+      h.ok(a.context.failed_requests.some((r) => r.status === 500), "bağlamda istek olmalı");
+      h.ok(H().reports[0].keepalive, "keepalive: true (sayfa kapanırken de gitsin)");
+    } },
+  { id: "auto-expected-statuses", group: "Otomatik raporlar", name: "401, 403, 404, 429 rapor edilmez ama bağlama girer",
+    async run(h) {
+      for (const s of [401, 403, 404, 429]) await h.fetch("/mock/" + s + "/x");
+      await h.noAuto();
+      h.eq((await h.userReport("Beklenen hatalar")).context.failed_requests.length, 4, "failed_requests");
+    } },
+  { id: "auto-4xx", group: "Otomatik raporlar", name: "400 ve 422 rapor edilir",
+    async run(h) {
+      await h.fetch("/mock/400/form");
+      await h.fetch("/mock/422/form");
+      const list = await h.autoCount(2);
+      h.eq(list.map((a) => a.trigger.status).sort().join(","), "400,422", "durumlar");
+    } },
+  { id: "auto-network", group: "Otomatik raporlar", name: "Cevap gelmeyen istek (status 0) rapor edilir",
+    async run(h) {
+      await h.fetch("/mock/network/stok");
+      const [a] = await h.autoCount(1);
+      h.eq(a.trigger.status, 0, "status");
+      h.includes(a.user_message, "got no response", "mesaj");
+    } },
+  { id: "auto-offline", group: "Otomatik raporlar", name: "Çevrimdışıyken ağ hatası rapor edilmez",
+    async run(h) {
+      Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+      await h.fetch("/mock/network/stok");
+      await h.noAuto();
+    } },
+  { id: "auto-abort", group: "Otomatik raporlar", name: "Uygulamanın iptal ettiği fetch rapor edilmez, bağlama girer",
+    async run(h) {
+      const c = new AbortController();
+      const p = h.fetch("/mock/200/arama?ms=400", { signal: c.signal });
+      setTimeout(() => c.abort(), 10);
+      await p;
+      await h.noAuto();
+      const r = (await h.userReport("Arama")).context.failed_requests;
+      h.eq(r.length, 1, "failed_requests");
+      h.eq(r[0].status, 0, "status");
+    } },
+  { id: "auto-xhr-502", group: "Otomatik raporlar", name: "XHR 502 → otomatik rapor",
+    async run(h) {
+      await h.xhr("GET", "/mock/502/liste");
+      const [a] = await h.autoCount(1);
+      h.eq(a.trigger.method, "GET", "method");
+      h.eq(a.trigger.status, 502, "status");
+    } },
+  { id: "auto-xhr-abort", group: "Otomatik raporlar", name: "İptal edilen XHR rapor edilmez",
+    async run(h) { await h.xhr("GET", "/mock/200/liste?ms=400", { abort: true }); await h.noAuto(); } },
+  { id: "auto-uncaught", group: "Otomatik raporlar", name: "Yakalanmamış hata → otomatik rapor",
+    async run(h) {
+      h.throwLater("Ödeme bileşeni çöktü");
+      const [a] = await h.autoCount(1);
+      h.eq(a.trigger.kind, "error", "trigger.kind");
+      h.includes(a.trigger.message, "Ödeme bileşeni çöktü", "trigger.message");
+      h.ok(a.user_message.startsWith("Automatic report: uncaught error on "), "user_message: " + a.user_message);
+      h.ok(a.context.console_errors.some((e) => e.includes("Ödeme bileşeni çöktü")), "konsol hatalarında olmalı");
+    } },
+  { id: "auto-rejection", group: "Otomatik raporlar", name: "Karşılanmamış promise reddi → otomatik rapor",
+    async run(h) {
+      h.rejectLater("Sepet yüklenemedi");
+      const [a] = await h.autoCount(1);
+      h.includes(a.trigger.message, "Unhandled rejection", "trigger.message");
+      h.includes(a.trigger.message, "Sepet yüklenemedi", "trigger.message");
+    } },
+  { id: "auto-noise", group: "Otomatik raporlar", name: "Gürültü yok sayılır: ResizeObserver, Script error.",
+    async run(h) {
+      h.throwLater("ResizeObserver loop completed with undelivered notifications.");
+      window.dispatchEvent(new ErrorEvent("error", { message: "Script error." }));
+      await h.noAuto();
+    } },
+  { id: "auto-resource-error", group: "Otomatik raporlar", name: "Yüklenemeyen resim hata sayılmaz",
+    async run(h) {
+      const img = new Image();
+      const done = new Promise((r) => (img.onerror = img.onload = r));
+      img.src = "olmayan-resim-" + Date.now() + ".png";
+      document.getElementById("stage").appendChild(img);
+      await done;
+      await h.noAuto();
+    } },
+  { id: "auto-dedupe-same", group: "Otomatik raporlar", name: "Aynı hata iki kez → tek rapor",
+    async run(h) {
+      await h.fetch("/mock/500/odeme", { method: "POST" });
+      await h.fetch("/mock/500/odeme", { method: "POST" });
+      await h.autoCount(1);
+    } },
+  { id: "auto-dedupe-ids", group: "Otomatik raporlar", name: "Yoldaki kimlikler farklı olsa da aynı hata sayılır",
+    async run(h) {
+      await h.fetch("/mock/500/siparis/17");
+      await h.fetch("/mock/500/siparis/18?x=1");
+      await h.fetch("/mock/500/kullanici/9f8e7d6c5b4a3f2e");
+      await h.fetch("/mock/500/kullanici/0a1b2c3d4e5f6a7b");
+      await h.autoCount(2);
+    } },
+  { id: "auto-distinct", group: "Otomatik raporlar", name: "Farklı durum kodu veya yöntem → ayrı rapor",
+    async run(h) {
+      await h.fetch("/mock/500/sepet");
+      await h.fetch("/mock/503/sepet");
+      await h.fetch("/mock/500/sepet", { method: "POST" });
+      await h.autoCount(3);
+    } },
+  { id: "auto-dedupe-error", group: "Otomatik raporlar", name: "Aynı yakalanmamış hata iki kez → tek rapor",
+    async run(h) {
+      h.throwLater("Tekrarlayan hata");
+      h.throwLater("Tekrarlayan hata");
+      await h.autoCount(1);
+    } },
+  { id: "auto-session-write", group: "Otomatik raporlar", name: "Gönderilen hata sessionStorage'a yazılır",
+    async run(h) {
+      await h.fetch("/mock/500/odeme", { method: "POST" });
+      await h.autoCount(1);
+      let raw;
+      try { raw = sessionStorage.getItem("glitchback:auto-sent"); } catch { h.skip("sessionStorage bu ortamda kapalı"); }
+      h.includes(raw || "", "r POST /mock/:n/odeme 500", "oturum kaydı");
+    } },
+  { id: "auto-session-respected", group: "Otomatik raporlar", name: "Oturumda daha önce gönderilmiş hata tekrar gönderilmez",
+    cfg: { before() { try { sessionStorage.setItem("glitchback:auto-sent", JSON.stringify(["r POST /mock/:n/odeme 500"])); } catch {} } },
+    async run(h) {
+      try { sessionStorage.getItem("x"); } catch { h.skip("sessionStorage bu ortamda kapalı"); }
+      await h.fetch("/mock/500/odeme", { method: "POST" });
+      await h.noAuto();
+    } },
+  { id: "auto-max-per-page", group: "Otomatik raporlar", name: "maxPerPage: sayfa başına üst sınır", cfg: { options: { autoReport: { maxPerPage: 2 } } },
+    async run(h) {
+      await h.fetch("/mock/500/a");
+      await h.fetch("/mock/500/b");
+      await h.fetch("/mock/500/c");
+      await h.autoCount(2);
+    } },
+  { id: "auto-max-default", group: "Otomatik raporlar", name: "Varsayılan sınır: sayfa başına 5 rapor", cfg: { options: { autoReport: { maxPerPage: undefined } } },
+    async run(h) {
+      for (const p of ["a", "b", "c", "d", "e", "f", "g"]) await h.fetch("/mock/500/" + p);
+      await h.autoCount(5);
+    } },
+  { id: "auto-delay", group: "Otomatik raporlar", name: "delayMs: rapor beklenir, takip eden hatalar da girer", cfg: { options: { autoReport: { delayMs: 400 } } },
+    async run(h) {
+      await h.fetch("/mock/500/odeme");
+      await h.wait(150);
+      h.eq(h.auto().length, 0, "beklemeden gönderilmemeli");
+      console.error("takip eden hata");
+      const [a] = await h.autoCount(1, { timeout: 1500 });
+      h.ok(a.context.console_errors.includes("takip eden hata"), "takip eden hata bağlamda olmalı");
+    } },
+  { id: "auto-stop-429", group: "Otomatik raporlar", name: "Sunucu 429 derse sayfa boyunca otomatik rapor durur", cfg: { intake: 429 },
+    async run(h) {
+      await h.fetch("/mock/500/a");
+      await h.until(() => H().reports.length === 1 && H().reports[0].status === 429, "ilk deneme");
+      await h.wait(20);
+      await h.fetch("/mock/500/b");
+      h.throwLater("sonraki hata");
+      await h.wait(250);
+      h.eq(H().reports.length, 1, "toplam gönderim");
+    } },
+  { id: "auto-stop-403", group: "Otomatik raporlar", name: "Sunucu 403 derse (kapalı) otomatik rapor durur", cfg: { intake: 403 },
+    async run(h) {
+      await h.fetch("/mock/500/a");
+      await h.until(() => H().reports.length === 1 && H().reports[0].status === 403, "ilk deneme");
+      await h.wait(20);
+      await h.fetch("/mock/500/b");
+      await h.wait(250);
+      h.eq(H().reports.length, 1, "toplam gönderim");
+    } },
+  { id: "auto-continue-500", group: "Otomatik raporlar", name: "Sunucu 500 derse otomatik raporlar sürer", cfg: { intake: 500 },
+    async run(h) {
+      await h.fetch("/mock/500/a");
+      await h.until(() => H().reports.length === 1, "ilk deneme");
+      await h.fetch("/mock/500/b");
+      await h.until(() => H().reports.length === 2, "ikinci deneme");
+    } },
+  { id: "auto-off", group: "Otomatik raporlar", name: "autoReport: false → otomatik rapor yok, bağlam yine toplanır", cfg: { options: { autoReport: false } },
+    async run(h) {
+      await h.fetch("/mock/500/odeme");
+      h.throwLater("kapalıyken hata");
+      await h.noAuto();
+      const c = (await h.userReport("Kapalı")).context;
+      h.eq(c.failed_requests.length, 1, "failed_requests");
+      h.ok(c.console_errors.some((e) => e.includes("kapalıyken hata")), "console_errors");
+    } },
+  { id: "auto-statuses-array", group: "Otomatik raporlar", name: "statuses: [404] → yalnızca 404", cfg: { options: { autoReport: { statuses: [404] } } },
+    async run(h) {
+      await h.fetch("/mock/404/a");
+      await h.fetch("/mock/500/b");
+      const [a] = await h.autoCount(1);
+      h.eq(a.trigger.status, 404, "status");
+    } },
+  { id: "auto-statuses-fn", group: "Otomatik raporlar", name: "statuses: (s) => s >= 500", cfg: { options: { autoReport: { statuses: (s) => s >= 500 } } },
+    async run(h) {
+      await h.fetch("/mock/422/a");
+      await h.fetch("/mock/503/b");
+      const [a] = await h.autoCount(1);
+      h.eq(a.trigger.status, 503, "status");
+    } },
+  { id: "auto-requests-false", group: "Otomatik raporlar", name: "requests: false → istekler değil, hatalar rapor edilir", cfg: { options: { autoReport: { requests: false } } },
+    async run(h) {
+      await h.fetch("/mock/500/a");
+      h.throwLater("hata yine gitmeli");
+      const [a] = await h.autoCount(1);
+      h.eq(a.trigger.kind, "error", "kind");
+    } },
+  { id: "auto-errors-false", group: "Otomatik raporlar", name: "errors: false → hatalar değil, istekler rapor edilir", cfg: { options: { autoReport: { errors: false } } },
+    async run(h) {
+      h.throwLater("bu gitmemeli");
+      await h.fetch("/mock/500/a");
+      const [a] = await h.autoCount(1);
+      h.eq(a.trigger.kind, "request", "kind");
+    } },
+];
+
+/* ==========================================================================
+   Test çalıştırıcı (iframe içinde) — genelde dokunmanız gerekmez.
+   ========================================================================== */
+const H = () => window.__gb;
+const DEFAULT_DELAY = 30;
+
+function buildOptions(cfg) {
+  const o = Object.assign({ endpoint: "/__glitchback" }, cfg.options);
+  if (o.autoReport !== false) o.autoReport = Object.assign({ delayMs: DEFAULT_DELAY, maxPerPage: 100 }, typeof o.autoReport === "object" ? o.autoReport : {});
+  return o;
+}
+
+function makeHelpers(cfg, options) {
+  const delay = (options && options.autoReport && options.autoReport.delayMs) || DEFAULT_DELAY;
+  const h = {
+    get root() { const host = document.querySelector("glitchback-root"); return host && host.shadowRoot; },
+    host: () => document.querySelector("glitchback-root"),
+    $: (sel) => h.root && h.root.querySelector(sel),
+    $$: (sel) => (h.root ? [...h.root.querySelectorAll(sel)] : []),
+    fab: () => h.$(".fab"),
+    panel: () => h.$(".panel"),
+    get labels() { return (h.host() && h.host().getAttribute("lang") === "en") ? Glitchback.labelsEN : Glitchback.labelsTR; },
+
+    ok(cond, msg) { if (!cond) throw new Error(msg); },
+    eq(actual, expected, msg) { if (actual !== expected) throw new Error(`${msg}: beklenen ${JSON.stringify(expected)}, gelen ${JSON.stringify(actual)}`); },
+    includes(str, sub, msg) { if (typeof str !== "string" || !str.includes(sub)) throw new Error(`${msg}: ${JSON.stringify(str)} içinde ${JSON.stringify(sub)} yok`); },
+    skip(msg) { throw Object.assign(new Error(msg), { skip: true }); },
+    wait: (ms) => new Promise((r) => setTimeout(r, ms)),
+    async until(fn, msg, timeout = 2000) {
+      const end = Date.now() + timeout;
+      for (;;) {
+        const v = fn();
+        if (v) return v;
+        if (Date.now() > end) throw new Error("Zaman aşımı: " + msg);
+        await h.wait(10);
+      }
+    },
+
+    auto: () => H().reports.filter((r) => r.payload && r.payload.source === "auto").map((r) => r.payload),
+    user: () => H().reports.filter((r) => r.payload && r.payload.source === "user_report").map((r) => r.payload),
+    /** Tam olarak n otomatik rapor gelmesini bekler (sonradan fazlası gelmediğini de kontrol eder). */
+    async autoCount(n, { timeout = 2000 } = {}) {
+      await h.until(() => h.auto().length >= n, `${n} otomatik rapor bekleniyordu, ${h.auto().length} geldi`, timeout);
+      await h.wait(delay + 150);
+      h.eq(h.auto().length, n, "otomatik rapor sayısı");
+      return h.auto();
+    },
+    async noAuto(ms) {
+      await h.wait(ms || delay + 200);
+      h.eq(h.auto().length, 0, "otomatik rapor gönderilmemeliydi; gelen: " + h.auto().map((a) => a.user_message).join(" | "));
+    },
+
+    /** Formu açar, mesajı yazar, gönderir, gelen payload'ı döndürür. */
+    async userReport(message, { keepOpen = false } = {}) {
+      if (!h.panel()) Glitchback.open();
+      const ta = await h.until(() => h.$("#pb-msg"), "form");
+      ta.value = message;
+      const before = h.user().length;
+      h.$("#pb-send").click();
+      await h.until(() => h.user().length > before, "kullanıcı raporu gönderilmedi");
+      await h.until(() => h.$(".done"), "teşekkür ekranı çıkmadı");
+      if (!keepOpen) h.$(".done .btn").click();
+      return h.user()[h.user().length - 1];
+    },
+    /** Sunucu hata dönerken gönderir; hata mesajı görünene kadar bekler. */
+    async sendExpectingError(message) {
+      Glitchback.open();
+      h.$("#pb-msg").value = message;
+      h.$("#pb-send").click();
+      await h.until(() => h.$("#pb-error") && !h.$("#pb-error").hidden && !h.$("#pb-send").disabled, "hata mesajı görünmedi");
+    },
+
+    fetch: (input, init) => fetch(input, init).catch((e) => e),
+    xhr: (method, url, { abort = false } = {}) => new Promise((resolve) => {
+      const x = new XMLHttpRequest();
+      x.open(method, url);
+      x.addEventListener("loadend", () => resolve(x));
+      x.send();
+      if (abort) setTimeout(() => x.abort(), 10);
+    }),
+    throwLater: (msg) => setTimeout(() => { throw new Error(msg); }, 0),
+    rejectLater: (msg) => setTimeout(() => { Promise.reject(new Error(msg)); }, 0),
+    button(text, attrs = {}) {
+      const b = document.createElement("button");
+      b.textContent = text;
+      for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v);
+      document.getElementById("stage").appendChild(b);
+      return b;
+    },
+    click: (el) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, composed: true })),
+  };
+  return h;
+}
+
+async function runInFrame(id) {
+  const test = TESTS.find((t) => t.id === id);
+  const embedded = window.parent !== window;
+  const post = (r) => {
+    if (embedded) window.parent.postMessage(Object.assign({ type: "gb-result", id }, r), "*");
+    const box = document.createElement("div");
+    box.className = "frame-result";
+    box.style.background = r.status === "pass" ? "#e5f4eb" : r.status === "skip" ? "#fbf3d9" : "#fbe9e7";
+    box.style.color = "#1a1c20";
+    box.textContent = (r.status === "pass" ? "GEÇTİ" : r.status === "skip" ? "ATLANDI" : "KALDI") + (r.message ? " — " + r.message : "") + `  (${r.ms} ms)`;
+    document.body.appendChild(box);
+  };
+  document.body.className = "frame";
+  document.body.innerHTML = `<div class="tid mono"></div><h2 style="margin:4px 0 12px"></h2><div id="stage" style="display:flex;gap:8px;flex-wrap:wrap"></div>`;
+  if (!test) return post({ status: "fail", message: "Test bulunamadı: " + id, ms: 0 });
+  document.title = test.name;
+  document.querySelector(".tid").textContent = test.group + " · " + test.id;
+  document.querySelector("h2").textContent = test.name;
+
+  const cfg = test.cfg || {};
+  if (cfg.htmlLang) document.documentElement.lang = cfg.htmlLang;
+  if (cfg.dark) document.body.classList.add("dark");
+  if (cfg.intake !== undefined) H().intakeStatus = cfg.intake;
+  const options = buildOptions(cfg);
+  const h = makeHelpers(cfg, options);
+  const t0 = performance.now();
+  try {
+    if (typeof Glitchback === "undefined") throw new Error("glitchback.global.js yüklenemedi (npm run build)");
+    if (cfg.before) cfg.before();
+    if (!cfg.noInit) h.api = Glitchback.init(options);
+    await test.run(h);
+    post({ status: "pass", ms: Math.round(performance.now() - t0) });
+  } catch (e) {
+    post({ status: e && e.skip ? "skip" : "fail", message: (e && e.message) || String(e), ms: Math.round(performance.now() - t0) });
+  }
+}
+
+/* ==========================================================================
+   Ana sayfa: test listesi + elle deneme alanı
+   ========================================================================== */
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
+
+function renderPlayground() {
+  const p = H().params;
+  const loaded = typeof Glitchback !== "undefined";
+  const groups = [...new Set(TESTS.map((t) => t.group))];
+  const sel = (name, opts, cur) => `<select name="${name}">${opts.map(([v, l]) => `<option value="${v}"${v === cur ? " selected" : ""}>${l}</option>`).join("")}</select>`;
+
+  document.body.innerHTML = `
+  <div class="wrap">
+    <header class="top">
+      <h1>Glitchback widget testleri</h1>
+      <p>${TESTS.length} test · derlenmiş paket: <code>../dist/glitchback.global.js</code> · rapor sunucusu: ${H().liveEndpoint ? `<b>gerçek</b> <code>${esc(H().liveEndpoint)}</code>` : "<b>sahte</b> (sayfa içinde)"}</p>
+    </header>
+    ${loaded ? "" : `<div class="banner">glitchback.global.js yüklenemedi. Repo kökünde <code>npm run build</code> çalıştırıp sayfayı yenileyin.</div>`}
+    <div class="grid">
+      <div class="card">
+        <div class="toolbar">
+          <button class="b primary" id="run-all">Hepsini çalıştır</button>
+          <button class="b" id="run-failed">Kalanları tekrar çalıştır</button>
+          <label class="inline"><input type="checkbox" id="only-bad"> Sadece kalan/atlananlar</label>
+          <div class="chips"><span class="chip pass" id="c-pass">0 geçti</span><span class="chip fail" id="c-fail">0 kaldı</span><span class="chip skip" id="c-skip">0 atlandı</span><span class="chip" id="c-time"></span></div>
+        </div>
+        ${groups.map((g) => `<h3>${esc(g)}</h3><table>${TESTS.filter((t) => t.group === g).map((t) => `
+          <tr data-id="${t.id}">
+            <td class="st"><span class="badge">bekliyor</span></td>
+            <td><div class="name">${esc(t.name)}</div><div class="tid mono">${t.id}</div><div class="msg" hidden></div></td>
+            <td class="dur"></td>
+            <td class="act"><button class="b sm" data-run="${t.id}">Çalıştır</button> <a class="b sm" style="display:inline-flex;align-items:center;text-decoration:none;color:inherit" href="?run=${t.id}" target="_blank" title="Yeni sekmede aç (DevTools ile incelemek için)">↗</a></td>
+          </tr>`).join("")}</table>`).join("")}
+      </div>
+
+      <div class="side" style="display:grid;gap:16px">
+        <div class="card">
+          <h2>Test önizleme</h2>
+          <iframe class="preview" id="preview" title="Çalışan test"></iframe>
+          <p class="hint">Her test bu çerçevede temiz bir sayfada, kendi <code>init()</code> ayarlarıyla çalışır.</p>
+        </div>
+
+        <div class="card">
+          <h2>Elle deneme alanı</h2>
+          <form class="cfg" id="cfg">
+            <label>Dil (locale)${sel("locale", [["auto", "auto"], ["tr", "tr"], ["en", "en"]], p.get("locale") || "auto")}</label>
+            <label>Sayfa dili (html lang)${sel("lang", [["tr", "tr"], ["en", "en"], ["de", "de"]], p.get("lang") || "tr")}</label>
+            <label>Tema${sel("theme", [["auto", "auto"], ["light", "light"], ["dark", "dark"]], p.get("theme") || "auto")}</label>
+            <label>Sayfa arka planı${sel("dark", [["0", "açık"], ["1", "koyu"]], p.get("dark") || "0")}</label>
+            <label>Konum${sel("position", [["right", "sağ"], ["left", "sol"]], p.get("position") || "right")}</label>
+            <label>Buton${sel("button", [["1", "göster"], ["0", "gizle"]], p.get("button") || "1")}</label>
+            <label>E-posta alanı${sel("contact", [["0", "kapalı"], ["1", "açık"]], p.get("contact") || "0")}</label>
+            <label>Otomatik rapor${sel("auto", [["1", "açık"], ["0", "kapalı"]], p.get("auto") || "1")}</label>
+            <label>delayMs<input name="delay" type="number" min="0" placeholder="1500" value="${esc(p.get("delay") || "")}"></label>
+            <label>maxPerPage<input name="max" type="number" min="0" placeholder="5" value="${esc(p.get("max") || "")}"></label>
+            <label style="grid-column:1/-1">Gerçek rapor sunucusu (boşsa sahte)<input name="endpoint" placeholder="http://localhost:8787" value="${esc(p.get("endpoint") || "")}"></label>
+            <div style="grid-column:1/-1;display:flex;gap:8px"><button class="b primary" type="submit">Uygula (sayfayı yeniler)</button><button class="b" type="button" id="cfg-reset">Varsayılanlar</button></div>
+          </form>
+
+          <h3>Hata üret</h3>
+          <div class="triggers">
+            <button class="b sm" data-t="throw">JS hatası</button>
+            <button class="b sm" data-t="reject">Promise reddi</button>
+            <button class="b sm" data-t="console">console.error</button>
+            <button class="b sm" data-t="f500">fetch 500</button>
+            <button class="b sm" data-t="f422">fetch 422</button>
+            <button class="b sm" data-t="f404">fetch 404 (beklenen)</button>
+            <button class="b sm" data-t="fnet">fetch ağ hatası</button>
+            <button class="b sm" data-t="fabort">fetch iptal</button>
+            <button class="b sm" data-t="x502">XHR 502</button>
+            <button class="b sm" data-t="nav">SPA geçişi</button>
+            <button class="b sm" data-t="open">Glitchback.open()</button>
+          </div>
+          <div class="field">
+            <label for="kart">Kart no (değeri rapora girmemeli):</label>
+            <input id="kart" value="4111 1111 1111 1111" style="width:170px">
+          </div>
+          <div class="field">
+            <label for="intake">Sahte sunucunun cevabı:</label>
+            <select id="intake" ${H().liveEndpoint ? "disabled" : ""}>
+              <option value="200">200 tamam</option><option value="429">429 çok fazla</option>
+              <option value="403">403 kapalı</option><option value="500">500 hata</option><option value="network">ağ hatası</option>
+            </select>
+            <button class="b sm" id="clear-session" type="button" title="Aynı hata oturumda bir kez gönderilir">Oturum kaydını sil</button>
+          </div>
+
+          <h3>Gönderilen raporlar <span id="log-count"></span> <button class="b sm" id="log-clear" style="margin-left:6px">Temizle</button></h3>
+          <div class="log" id="log"><div class="empty">Henüz rapor yok. Otomatik raporlar ${p.get("delay") || 1500} ms gecikmeyle gelir.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  /* ---- test çalıştırıcı ---- */
+  const results = {};
+  const frame = document.getElementById("preview");
+  const row = (id) => document.querySelector(`tr[data-id="${id}"]`);
+  const setRow = (id, status, message, ms) => {
+    const r = row(id);
+    const labels = { pass: "geçti", fail: "kaldı", skip: "atlandı", run: "çalışıyor", idle: "bekliyor" };
+    r.dataset.status = status;
+    r.querySelector(".badge").className = "badge " + status;
+    r.querySelector(".badge").textContent = labels[status];
+    const m = r.querySelector(".msg");
+    m.hidden = !message;
+    m.textContent = message || "";
+    m.classList.toggle("skip", status === "skip");
+    r.querySelector(".dur").textContent = ms != null ? ms + " ms" : "";
+  };
+  const refresh = () => {
+    const v = Object.values(results);
+    const n = (s) => v.filter((r) => r.status === s).length;
+    document.getElementById("c-pass").textContent = n("pass") + " geçti";
+    document.getElementById("c-fail").textContent = n("fail") + " kaldı";
+    document.getElementById("c-skip").textContent = n("skip") + " atlandı";
+    const only = document.getElementById("only-bad").checked;
+    document.querySelectorAll("tr[data-id]").forEach((r) => r.classList.toggle("hidden", only && r.dataset.status === "pass"));
+  };
+  document.getElementById("only-bad").addEventListener("change", refresh);
+
+  function runOne(id) {
+    setRow(id, "run");
+    return new Promise((resolve) => {
+      const started = performance.now();
+      const timer = setTimeout(() => finish({ status: "fail", message: "Zaman aşımı (8 sn): test sonuç bildirmedi" }), 8000);
+      function onMsg(e) {
+        if (!e.data || e.data.type !== "gb-result" || e.data.id !== id || e.source !== frame.contentWindow) return;
+        finish(e.data);
+      }
+      function finish(r) {
+        clearTimeout(timer);
+        window.removeEventListener("message", onMsg);
+        results[id] = r;
+        setRow(id, r.status, r.message, r.ms != null ? r.ms : Math.round(performance.now() - started));
+        refresh();
+        resolve(r);
+      }
+      window.addEventListener("message", onMsg);
+      frame.src = "?run=" + encodeURIComponent(id) + "&t=" + Date.now();
+    });
+  }
+  async function runMany(ids) {
+    const buttons = document.querySelectorAll("#run-all, #run-failed, [data-run]");
+    buttons.forEach((b) => (b.disabled = true));
+    const t0 = performance.now();
+    for (const id of ids) setRow(id, "idle");
+    for (const id of ids) await runOne(id);
+    document.getElementById("c-time").textContent = ((performance.now() - t0) / 1000).toFixed(1) + " sn";
+    buttons.forEach((b) => (b.disabled = false));
+    const failed = ids.filter((id) => results[id].status === "fail");
+    document.title = (failed.length ? `✗ ${failed.length} kaldı` : "✓ hepsi geçti") + " · Glitchback widget testleri";
+  }
+  document.getElementById("run-all").addEventListener("click", () => runMany(TESTS.map((t) => t.id)));
+  document.getElementById("run-failed").addEventListener("click", () => {
+    const ids = TESTS.map((t) => t.id).filter((id) => !results[id] || results[id].status !== "pass");
+    if (ids.length) runMany(ids);
+  });
+  document.querySelectorAll("[data-run]").forEach((b) => b.addEventListener("click", () => runMany([b.dataset.run])));
+
+  /* ---- elle deneme alanı ---- */
+  document.getElementById("cfg").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const q = new URLSearchParams();
+    for (const [k, v] of new FormData(e.target)) if (String(v).trim()) q.set(k, String(v).trim());
+    location.search = q.toString();
+  });
+  document.getElementById("cfg-reset").addEventListener("click", () => { location.search = ""; });
+  document.getElementById("intake").addEventListener("change", (e) => {
+    const v = e.target.value;
+    H().intakeStatus = v === "network" ? "network" : Number(v);
+  });
+  document.getElementById("clear-session").addEventListener("click", () => { try { sessionStorage.removeItem("glitchback:auto-sent"); } catch {} });
+
+  const triggers = {
+    throw: () => setTimeout(() => { window.__olmayan.cagir(); }),
+    reject: () => { Promise.reject(new Error("Sepet yüklenemedi")); },
+    console: () => console.error("Elle üretilen konsol hatası", { kod: 42 }),
+    f500: () => fetch("/mock/500/api/odeme", { method: "POST" }),
+    f422: () => fetch("/mock/422/api/form", { method: "POST" }),
+    f404: () => fetch("/mock/404/api/urun/123"),
+    fnet: () => fetch("/mock/network/api/stok").catch(() => {}),
+    fabort: () => { const c = new AbortController(); fetch("/mock/200/api/arama?ms=500", { signal: c.signal }).catch(() => {}); setTimeout(() => c.abort(), 20); },
+    x502: () => { const x = new XMLHttpRequest(); x.open("GET", "/mock/502/api/liste"); x.send(); },
+    nav: () => { try { history.pushState({}, "", location.pathname + location.search + (location.search ? "&" : "?") + "adim=" + Date.now()); } catch (e) { console.warn("pushState file:// altında engelli olabilir", e); } },
+    open: () => Glitchback.open(),
+  };
+  document.querySelectorAll("[data-t]").forEach((b) => b.addEventListener("click", () => triggers[b.dataset.t]()));
+
+  const log = document.getElementById("log");
+  const renderLog = () => {
+    const entries = H().reports.slice().reverse();
+    document.getElementById("log-count").textContent = entries.length ? `(${entries.length})` : "";
+    if (!entries.length) { log.innerHTML = `<div class="empty">Henüz rapor yok.</div>`; return; }
+    log.innerHTML = entries.map((r) => {
+      const p = r.payload || {};
+      const ok = typeof r.status === "number" && r.status < 300;
+      const summary = p.source === "auto" ? p.user_message : `“${p.user_message}”${p.contact ? " · " + p.contact : ""}`;
+      const c = p.context || {};
+      return `<div class="entry">
+        <div class="row">
+          <span class="badge ${p.source === "auto" ? "run" : "pass"}">${esc(p.source || "?")}</span>
+          <span class="badge ${ok ? "pass" : "fail"}">sunucu: ${esc(r.status)}</span>
+          ${r.keepalive ? `<span class="badge">keepalive</span>` : ""}
+          <time>${r.at.toLocaleTimeString()}</time>
+        </div>
+        <div class="summary">${esc(summary || "")}</div>
+        <div class="tid">${(c.console_errors || []).length} konsol hatası · ${(c.failed_requests || []).length} başarısız istek · ${(c.breadcrumbs || []).length} iz</div>
+        <details><summary class="tid" style="cursor:pointer">JSON</summary><pre>${esc(JSON.stringify(p, null, 2))}</pre></details>
+      </div>`;
+    }).join("");
+  };
+  H().listeners.push(renderLog);
+  document.getElementById("log-clear").addEventListener("click", () => { H().reports.length = 0; renderLog(); });
+
+  /* ---- widget'ı bu sayfaya kur ---- */
+  if (!loaded) return;
+  document.documentElement.lang = p.get("lang") || "tr";
+  if (p.get("dark") === "1") {
+    document.documentElement.style.setProperty("--bg", "#14161a");
+    document.body.style.background = "#14161a";
+  }
+  const auto = p.get("auto") === "0" ? false : {};
+  if (auto && p.get("delay")) auto.delayMs = Number(p.get("delay"));
+  if (auto && p.get("max")) auto.maxPerPage = Number(p.get("max"));
+  Glitchback.init({
+    endpoint: H().liveEndpoint || "/__glitchback",
+    locale: p.get("locale") || "auto",
+    theme: p.get("theme") || "auto",
+    position: p.get("position") || "right",
+    button: p.get("button") !== "0",
+    askContact: p.get("contact") === "1",
+    autoReport: auto,
+    appVersion: "test-sayfasi",
+  });
+}
+
+if (H().mode === "frame") runInFrame(H().runId);
+else renderPlayground();
+</script>
+</body>
+</html>

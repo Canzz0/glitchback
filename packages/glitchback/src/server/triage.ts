@@ -51,7 +51,8 @@ export function ruleHints(r: ReportInput): Hints {
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Jev (TypeSafe System One model): typed, calibrated decisions      */
+/* 2. Jev (TypeSafe System One model), optional: typed, calibrated     */
+/*    decisions. Used only when TYPESAFE_API_KEY is set.                */
 /*    API: POST https://api.typesafe.ai/v1/systemone                    */
 /* ------------------------------------------------------------------ */
 
@@ -165,7 +166,8 @@ async function triageWithJev(r: ReportInput, jev: NonNullable<Config["jev"]>): P
 }
 
 /* ------------------------------------------------------------------ */
-/* 3. Fallback when Jev is unreachable: any chat model (TRIAGE_MODEL)   */
+/* 3. The AI the user picked (Gemini, Claude, GPT, ...): TRIAGE_MODEL,  */
+/*    or the default model of the first AI key found                    */
 /* ------------------------------------------------------------------ */
 
 async function triageWithLlm(r: ReportInput, llm: NonNullable<Config["llm"]>): Promise<Scores> {
@@ -222,8 +224,9 @@ export async function triage(r: ReportInput, cfg: Config): Promise<TriageResult>
   let scores: Scores | null = null;
   let decidedBy: TriageResult["decided_by"] = "rules";
 
-  // Jev is the primary engine. TRIAGE_MODEL is only asked when Jev is not configured
-  // or fails (outage, bad key, rate limit), and rules are the last resort.
+  // Jev first when its key is set, then the AI model (TRIAGE_MODEL or the default of the
+  // AI key that is set); each later one is asked only when the one before fails or is
+  // missing (outage, bad key, rate limit). Rules are the last resort.
   const engines: [TriageResult["decided_by"], () => Promise<Scores>][] = [];
   if (cfg.jev) engines.push(["jev", () => triageWithJev(r, cfg.jev!)]);
   if (cfg.llm) engines.push(["llm", () => triageWithLlm(r, cfg.llm!)]);

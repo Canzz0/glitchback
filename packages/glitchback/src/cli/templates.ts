@@ -2,35 +2,57 @@ import { readFileSync } from "node:fs";
 import type { NextProject } from "./detect.ts";
 import type { ScannedRoute } from "./routes.ts";
 import { lang, t } from "./i18n.ts";
+import { DEFAULT_MODELS, type DefaultProvider } from "../schema/llm.ts";
 
-export type ProviderChoice = "gemini" | "anthropic" | "openai" | "none";
+export type ProviderChoice = DefaultProvider | "none";
 
-export const PROVIDERS: Record<Exclude<ProviderChoice, "none">, { label: string; keyEnv: string; keyUrl: string; models: [string, string, string] }> = {
-  gemini: {
-    label: "Google Gemini",
-    keyEnv: "GEMINI_API_KEY",
-    keyUrl: "https://aistudio.google.com/apikey",
-    models: ["gemini:gemini-3.5-flash-lite", "gemini:gemini-3.5-flash", "gemini:gemini-3.8-flash"],
-  },
-  anthropic: {
-    label: "Anthropic Claude",
-    keyEnv: "ANTHROPIC_API_KEY",
-    keyUrl: "https://platform.claude.com/settings/keys",
-    models: ["anthropic:claude-haiku-4-5-20251001", "anthropic:claude-sonnet-5", "anthropic:claude-opus-5-5"],
-  },
-  openai: {
-    label: "OpenAI",
-    keyEnv: "OPENAI_API_KEY",
-    keyUrl: "https://platform.openai.com/api-keys",
-    models: ["openai:gpt-6-luna", "openai:gpt-6-sol", "openai:gpt-6-astra"],
-  },
+const KEY_PAGES: Record<DefaultProvider, string> = {
+  gemini: "https://aistudio.google.com/apikey",
+  anthropic: "https://platform.claude.com/settings/keys",
+  openai: "https://platform.openai.com/api-keys",
 };
+
+/** Label, key variable, key page and tier models of each provider `init` offers (models: schema/llm.ts). */
+export const PROVIDERS = Object.fromEntries(
+  (Object.keys(DEFAULT_MODELS) as DefaultProvider[]).map((p) => [p, { ...DEFAULT_MODELS[p], keyUrl: KEY_PAGES[p] }]),
+) as Record<DefaultProvider, (typeof DEFAULT_MODELS)[DefaultProvider] & { keyUrl: string }>;
+
+/**
+ * The AI question in `init`. Always all providers: a key already in .env only makes that one
+ * the default (Enter keeps it), so nobody is locked into the first key they happened to add.
+ */
+export function providerMenu(known: DefaultProvider | null): { options: { key: ProviderChoice; label: string }[]; fallback: ProviderChoice } {
+  return {
+    options: [
+      ...(Object.keys(PROVIDERS) as DefaultProvider[]).map((p) => ({
+        key: p as ProviderChoice,
+        label: p === known ? `${PROVIDERS[p].label} ${t("(anahtar bulundu)", "(key found)")}` : PROVIDERS[p].label,
+      })),
+      { key: "none", label: t("Şimdilik yok (raporlar kurallarla sınıflanır)", "None for now (reports are triaged by rules)") },
+    ],
+    fallback: known ?? "none",
+  };
+}
+
+/** Points the three tier models of an existing .glitchback.yml at another provider; the rest of the file is kept. */
+export function setYmlModels(yml: string, provider: DefaultProvider): string {
+  const [low, mid, high] = PROVIDERS[provider].models;
+  const tiers: Record<string, string> = { low, mid, high };
+  return yml
+    .replace(/^#[^\n]*(Henüz anahtar girilmedi|No key entered yet)[^\n]*\n/m, "")
+    .replace(/^([ \t]+)(low|mid|high):[ \t]*.*$/gm, (_m, indent: string, tier: string) => `${indent}${tier}: ${q(tiers[tier])}`);
+}
+
+/** The provider an existing .glitchback.yml uses for the mid tier, from its "provider:model" prefix. */
+export function ymlProvider(yml: string): string | null {
+  return yml.match(/^[ \t]+mid:[ \t]*['"]?([a-z]+):/m)?.[1] ?? null;
+}
 
 export function routeFile(): string {
   return [
     t(
-      `// Glitchback: "Sorun bildir" raporlarını karşılar. Ayarlar .env.local içinde (GLITCHBACK_*, TYPESAFE_API_KEY).`,
-      `// Glitchback: receives "Report a problem" reports. Settings live in .env.local (GLITCHBACK_*, TYPESAFE_API_KEY).`,
+      `// Glitchback: "Sorun bildir" raporlarını karşılar. Ayarlar .env.local içinde (GLITCHBACK_*, yapay zekâ anahtarı).`,
+      `// Glitchback: receives "Report a problem" reports. Settings live in .env.local (GLITCHBACK_*, your AI key).`,
     ),
     `export { GET, POST, OPTIONS } from "${packageName()}/next";`,
     `export const runtime = "nodejs";`,
@@ -86,7 +108,13 @@ export function patchLayout(source: string, importPath: string): string | null {
     const directive = source.match(/^(["']use (client|server)["'];?\s*\n)/);
     out = directive ? `${directive[1]}${importLine}\n${source.slice(directive[1].length)}` : `${importLine}\n${source}`;
   }
-  return out.replace(/(\n?)([ \t]*)<\/body>/, (_m, nl: string, indent: string) => `${nl}${indent}  <Glitchback />\n${indent}</body>`);
+  // `</body>` on its own line: add the component above it. After content on the same line
+  // (`<body>{children}</body>`, the shape many layouts use): break the line so it stays readable.
+  return out.replace(/^([ \t]*)(.*?)<\/body>/m, (_m, indent: string, before: string) =>
+    before.trim()
+      ? `${indent}${before}\n${indent}  <Glitchback />\n${indent}</body>`
+      : `${indent}  <Glitchback />\n${indent}</body>`,
+  );
 }
 
 const q = (s: string) => `'${s.replace(/'/g, "''")}'`;
